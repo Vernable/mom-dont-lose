@@ -1,6 +1,7 @@
 import { usePathname, useRouter } from 'expo-router';
 import React from 'react';
 import { Image, ImageSourcePropType, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useAuth } from '../_layout';
 
 interface MenuItem {
   id: number;
@@ -12,12 +13,13 @@ interface MenuItem {
 export default function NavigationMenu() {
   const router = useRouter();
   const pathname = usePathname();
+  const { user } = useAuth();
 
   const menuItems: MenuItem[] = [
     {
       id: 1,
       title: 'Бот',
-      icon: require('../../assets/images/botik.jpg'), // исправил на bot.jpg
+      icon: require('../../assets/images/botik.jpg'),
       route: '/bot'
     },
     {
@@ -46,10 +48,23 @@ export default function NavigationMenu() {
     },
   ];
 
+  const handleNavigation = (route: string) => {
+    if (!user && route !== '/') {
+      router.push('/welcome');
+      return;
+    }
+    router.push(route as any);
+  };
+
   const isActive = (route: string) => {
     if (route === '/' && pathname === '/') return true;
     return pathname === route || pathname.startsWith(route + '/');
   };
+
+  // Не показываем меню на welcome и auth страницах
+  if (pathname === '/welcome' || pathname === '/auth') {
+    return null;
+  }
 
   return (
     <View style={styles.container}>
@@ -57,7 +72,7 @@ export default function NavigationMenu() {
         <TouchableOpacity
           key={item.id}
           style={styles.menuItem}
-          onPress={() => router.push(item.route as any)}
+          onPress={() => handleNavigation(item.route)}
         >
           <View style={[
             styles.iconContainer,

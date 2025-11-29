@@ -1,0 +1,210 @@
+import { useRouter } from 'expo-router';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator, Alert } from 'react-native';
+import { useState } from 'react';
+import { useAuth } from './_layout';
+
+export default function AuthScreen() {
+  const router = useRouter();
+  const { login, register } = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [isLogin, setIsLogin] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleAuth = async () => {
+    if (!email || !password) {
+      Alert.alert('Ошибка', 'Пожалуйста, заполните все обязательные поля');
+      return;
+    }
+
+    if (!isLogin && !name) {
+      Alert.alert('Ошибка', 'Пожалуйста, введите ваше имя');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      let success = false;
+      
+      if (isLogin) {
+        success = await login(email, password);
+        if (!success) {
+          Alert.alert('Ошибка', 'Неверный email или пароль');
+        }
+      } else {
+        success = await register(email, password, name);
+        if (!success) {
+          Alert.alert('Ошибка', 'Пользователь с таким email уже существует');
+        }
+      }
+      
+      // При успешной авторизации автоматически переходим на главную
+    } catch (error) {
+      Alert.alert('Ошибка', 'Произошла ошибка при авторизации');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>
+        {isLogin ? 'Вход в аккаунт' : 'Регистрация'}
+      </Text>
+      
+      <View style={styles.form}>
+        {!isLogin && (
+          <TextInput
+            style={styles.input}
+            placeholder="Ваше имя"
+            value={name}
+            onChangeText={setName}
+            editable={!isLoading}
+          />
+        )}
+        
+        <TextInput
+          style={styles.input}
+          placeholder="Email"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          editable={!isLoading}
+        />
+        
+        <TextInput
+          style={styles.input}
+          placeholder="Пароль"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          editable={!isLoading}
+        />
+        
+        <TouchableOpacity 
+          style={[styles.button, isLoading && styles.buttonDisabled]}
+          onPress={handleAuth}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <Text style={styles.buttonText}>
+              {isLogin ? 'Войти' : 'Зарегистрироваться'}
+            </Text>
+          )}
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={styles.switchButton}
+          onPress={() => setIsLogin(!isLogin)}
+          disabled={isLoading}
+        >
+          <Text style={styles.switchButtonText}>
+            {isLogin ? 'Нет аккаунта? Зарегистрироваться' : 'Уже есть аккаунт? Войти'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+      
+      <TouchableOpacity 
+        style={styles.backButton}
+        onPress={() => router.back()}
+        disabled={isLoading}
+      >
+        <Text style={styles.backButtonText}>← Назад</Text>
+      </TouchableOpacity>
+
+      {/* Тестовые данные для демо */}
+      <View style={styles.demoContainer}>
+        <Text style={styles.demoTitle}>Тестовые данные:</Text>
+        <Text style={styles.demoText}>Email: user@test.com</Text>
+        <Text style={styles.demoText}>Пароль: password123</Text>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    padding: 20,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 40,
+    color: '#511515',
+  },
+  form: {
+    width: '100%',
+    maxWidth: 300,
+  },
+  input: {
+    backgroundColor: 'white',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    fontSize: 16,
+  },
+  button: {
+    backgroundColor: '#511515',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 15,
+    height: 50,
+    justifyContent: 'center',
+  },
+  buttonDisabled: {
+    backgroundColor: '#cccccc',
+  },
+  buttonText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  switchButton: {
+    padding: 16,
+    alignItems: 'center',
+  },
+  switchButtonText: {
+    color: '#511515',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  backButton: {
+    marginTop: 20,
+    padding: 10,
+  },
+  backButtonText: {
+    color: '#511515',
+    fontSize: 16,
+  },
+  demoContainer: {
+    marginTop: 30,
+    padding: 15,
+    backgroundColor: '#e8f4f8',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#b8d8e8',
+  },
+  demoTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#2c5aa0',
+    marginBottom: 5,
+  },
+  demoText: {
+    fontSize: 12,
+    color: '#2c5aa0',
+  },
+});

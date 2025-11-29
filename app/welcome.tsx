@@ -1,11 +1,8 @@
 import { useRouter } from 'expo-router';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
-import { useAuth } from './_layout';
-import NavigationMenu from './components/NavigationMenu';
 
-export default function ProfileScreen() {
+export default function WelcomeScreen() {
   const router = useRouter();
-  const { user, logout } = useAuth();
 
   return (
     <View style={styles.container}>
@@ -16,25 +13,22 @@ export default function ProfileScreen() {
           resizeMode="cover"
         />
       </View>
-      <Text style={styles.title}>Профиль</Text>
+      <Text style={styles.title}>Добро пожаловать!</Text>
+      <Text style={styles.subtitle}>Откройте для себя лучшие места города</Text>
       
-      {user ? (
-        <TouchableOpacity 
-          style={styles.button}
-          onPress={logout}
-        >
-          <Text style={styles.buttonText}>Выйти</Text>
-        </TouchableOpacity>
-      ) : (
-        <TouchableOpacity 
-          style={styles.button}
-          onPress={() => router.push('/auth')}
-        >
-          <Text style={styles.buttonText}>Войти / Зарегистрироваться</Text>
-        </TouchableOpacity>
-      )}
-
-      <NavigationMenu />
+      <TouchableOpacity 
+        style={styles.button}
+        onPress={() => router.push('/auth')}
+      >
+        <Text style={styles.buttonText}>Войти / Зарегистрироваться</Text>
+      </TouchableOpacity>
+      
+      <TouchableOpacity 
+        style={styles.secondaryButton}
+        onPress={() => router.push('/')}
+      >
+        <Text style={styles.secondaryButtonText}>Продолжить как гость</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -67,8 +61,14 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 30,
+    marginBottom: 10,
     color: '#511515',
+  },
+  subtitle: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 40,
+    color: '#666',
   },
   button: {
     backgroundColor: '#511515',
@@ -77,10 +77,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '100%',
     maxWidth: 300,
+    marginBottom: 15,
   },
   buttonText: {
     color: 'white',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  secondaryButton: {
+    backgroundColor: 'transparent',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 300,
+    borderWidth: 1,
+    borderColor: '#511515',
+  },
+  secondaryButtonText: {
+    color: '#511515',
+    fontSize: 16,
+    fontWeight: '500',
   },
 });
