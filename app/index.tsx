@@ -1,15 +1,29 @@
-import { Text, View } from "react-native";
+// app/index.tsx
+import { View, Text, StyleSheet } from 'react-native';
 
-export default function Index() {
+export default function HomeScreen() {
   return (
-    <View
-      style={{
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-      }}
-    >
-      <Text>Edit app/index.tsx to edit this screen.</Text>
+    <View style={styles.container}>
+      <Text style={styles.title}>Главная страница</Text>
+      <Text style={styles.subtitle}>Это текст с новым шрифтом</Text>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 16,
+    backgroundColor: 'white',
+    paddingBottom: 80, // Отступ для навигации
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 16,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#666',
+  },
+});
