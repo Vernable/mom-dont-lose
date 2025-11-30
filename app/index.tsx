@@ -18,7 +18,7 @@ import { useAuth } from './_layout';
 const { width: screenWidth } = Dimensions.get('window');
 
 // Выносим карточку места в отдельный компонент
-const PlaceCard = ({ item, onPress }: { item: any; onPress: (id: string) => void }) => {
+const PlaceCard = ({ item, onPress, isViewed }: { item: any; onPress: (id: string) => void; isViewed: boolean }) => {
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
 
   const nextPhoto = (e: any) => {
@@ -53,6 +53,13 @@ const PlaceCard = ({ item, onPress }: { item: any; onPress: (id: string) => void
               resizeMode="cover"
             />
             
+            {/* Индикатор просмотренного места */}
+            {isViewed && (
+              <View style={styles.viewedBadge}>
+                <Text style={styles.viewedBadgeText}>👁️</Text>
+              </View>
+            )}
+            
             {item.photos.length > 1 && (
               <>
                 <TouchableOpacity style={styles.photoNavButtonLeft} onPress={prevPhoto}>
@@ -79,6 +86,12 @@ const PlaceCard = ({ item, onPress }: { item: any; onPress: (id: string) => void
         ) : (
           <View style={[styles.photoPlaceholder, { backgroundColor: '#511515' }]}>
             <Text style={styles.photoPlaceholderText}>📸</Text>
+            {/* Индикатор просмотренного места для placeholder */}
+            {isViewed && (
+              <View style={styles.viewedBadge}>
+                <Text style={styles.viewedBadgeText}>👁️</Text>
+              </View>
+            )}
           </View>
         )}
       </View>
@@ -103,6 +116,7 @@ export default function HomeScreen() {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [allPlaces, setAllPlaces] = useState<any[]>([]);
+  const [viewedPlaces, setViewedPlaces] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -113,7 +127,10 @@ export default function HomeScreen() {
     });
     
     loadPlaces();
-  }, []);
+    if (user) {
+      loadViewedPlaces();
+    }
+  }, [user]);
 
   const loadPlaces = async () => {
     try {
@@ -133,6 +150,49 @@ export default function HomeScreen() {
       setLoadError(error.message || 'Не удалось загрузить данные');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadViewedPlaces = async () => {
+    if (!user) return;
+    
+    try {
+      const viewedRecords = await pb.collection('search_place').getFullList({
+        filter: `user = "${user.id}"`,
+        expand: 'place'
+      });
+      
+      const viewedIds = new Set(viewedRecords.map(record => record.place));
+      setViewedPlaces(viewedIds);
+      console.log('Загружено просмотренных мест:', viewedIds.size);
+    } catch (error) {
+      console.error('Ошибка загрузки просмотренных мест:', error);
+    }
+  };
+
+  // Функция для отметки места как просмотренного
+  const markPlaceAsViewed = async (placeId: string) => {
+    if (!user) return;
+
+    try {
+      // Проверяем, не было ли уже просмотрено это место
+      const existingRecord = await pb.collection('search_place').getList(1, 1, {
+        filter: `user = "${user.id}" && place = "${placeId}"`,
+      });
+
+      if (existingRecord.items.length === 0) {
+        // Создаем новую запись о просмотренном месте
+        await pb.collection('search_place').create({
+          user: user.id,
+          place: placeId,
+        });
+        
+        // Обновляем локальное состояние
+        setViewedPlaces(prev => new Set([...prev, placeId]));
+        console.log('Место отмечено как просмотренное');
+      }
+    } catch (error) {
+      console.error('Ошибка при отметке места:', error);
     }
   };
 
@@ -166,6 +226,10 @@ export default function HomeScreen() {
   }, [filteredPlaces]);
 
   const handlePlacePress = (placeId: string) => {
+    // Отмечаем место как просмотренное
+    markPlaceAsViewed(placeId);
+    
+    // Переходим на страницу описания
     router.push({
       pathname: '/descriptionplace',
       params: { id: placeId }
@@ -177,7 +241,11 @@ export default function HomeScreen() {
   };
 
   const renderPlaceCard = ({ item }: { item: any }) => (
-    <PlaceCard item={item} onPress={handlePlacePress} />
+    <PlaceCard 
+      item={item} 
+      onPress={handlePlacePress}
+      isViewed={viewedPlaces.has(item.id)}
+    />
   );
 
   const renderCategorySection = ({ item }: { item: any }) => (
@@ -355,6 +423,23 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  // Стили для индикатора просмотренного места
+  viewedBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(81, 21, 21, 0.9)',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  viewedBadgeText: {
+    fontSize: 12,
+    color: 'white',
+  },
   photoNavButtonLeft: {
     position: 'absolute',
     left: 5,
@@ -409,6 +494,7 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
   },
   photoPlaceholderText: {
     fontSize: 32,

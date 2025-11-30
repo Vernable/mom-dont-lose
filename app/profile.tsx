@@ -15,11 +15,12 @@ export default function ProfileScreen() {
     logout();
   };
 
+  // ИЗМЕНЕНИЕ: Заменяем Alert на навигацию к экрану просмотренных мест
   const handleViewedPlaces = () => {
-    // Здесь можно добавить навигацию на экран просмотренных мест
-    Alert.alert('Просмотренные места', 'Функция в разработке');
+    router.push('/viewedplaces');
   };
 
+  // Остальной код без изменений...
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     
@@ -234,6 +235,7 @@ export default function ProfileScreen() {
                 <Text style={styles.actionButtonText}>✏️ Редактировать профиль</Text>
               </TouchableOpacity>
               
+              {/* ИЗМЕНЕНИЕ: Теперь кнопка ведет на реальный экран */}
               <TouchableOpacity 
                 style={styles.actionButton}
                 onPress={handleViewedPlaces}
@@ -271,6 +273,7 @@ export default function ProfileScreen() {
   );
 }
 
+// Стили остаются без изменений...
 const styles = StyleSheet.create({
   container: {
     flex: 1,
