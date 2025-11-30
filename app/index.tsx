@@ -12,11 +12,10 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import NavigationMenu from './components/NavigationMenu';
-import PocketBase from 'pocketbase';
+import { pb } from './utilis/pb';
+import { useAuth } from './_layout';
 
 const { width: screenWidth } = Dimensions.get('window');
-
-const pb = new PocketBase('http://192.168.1.10:8090');
 
 // Выносим карточку места в отдельный компонент
 const PlaceCard = ({ item, onPress }: { item: any; onPress: (id: string) => void }) => {
@@ -101,19 +100,37 @@ const PlaceCard = ({ item, onPress }: { item: any; onPress: (id: string) => void
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [allPlaces, setAllPlaces] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    console.log('Текущий статус авторизации на главной:', { 
+      isValid: !!user, 
+      user 
+    });
+    
+    loadPlaces();
+  }, []);
 
   const loadPlaces = async () => {
     try {
+      console.log('Начинаем загрузку мест...');
+      setIsLoading(true);
+      setLoadError(null);
+      
       const result = await pb.collection('places').getList(1, 50, {
-        expand: 'category'
+        expand: 'category',
+        requestKey: 'home_places' // Добавляем ключ для кэширования
       });
+      
       console.log('Загружено мест:', result.items.length);
       setAllPlaces(result.items);
-    } catch (error) {
-      console.error('Ошибка загрузки:', error);
+    } catch (error: any) {
+      console.error('Ошибка загрузки мест:', error);
+      setLoadError(error.message || 'Не удалось загрузить данные');
     } finally {
       setIsLoading(false);
     }
@@ -148,10 +165,6 @@ export default function HomeScreen() {
     }));
   }, [filteredPlaces]);
 
-  useEffect(() => {
-    loadPlaces();
-  }, []);
-
   const handlePlacePress = (placeId: string) => {
     router.push({
       pathname: '/descriptionplace',
@@ -161,6 +174,14 @@ export default function HomeScreen() {
 
   const clearSearch = () => {
     setSearchQuery('');
+  };
+
+  const handleAuthPress = () => {
+    if (user) {
+      router.push('/profile');
+    } else {
+      router.push('/auth');
+    }
   };
 
   const renderPlaceCard = ({ item }: { item: any }) => (
@@ -188,14 +209,16 @@ export default function HomeScreen() {
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <View style={styles.searchContainer}>
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Поиск по названию или адресу..."
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholderTextColor="#999"
-            />
+          <View style={styles.headerTop}>
+            <Text style={styles.headerTitle}>Культурный Уфа</Text>
+            <TouchableOpacity 
+              style={styles.authButton}
+              onPress={handleAuthPress}
+            >
+              <Text style={styles.authButtonText}>
+                {user ? '👤' : '🔐'}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
         <View style={styles.loadingContainer}>
@@ -207,9 +230,48 @@ export default function HomeScreen() {
     );
   }
 
+  if (loadError) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <View style={styles.headerTop}>
+            <Text style={styles.headerTitle}>Культурный Уфа</Text>
+            <TouchableOpacity 
+              style={styles.authButton}
+              onPress={handleAuthPress}
+            >
+              <Text style={styles.authButtonText}>
+                {user ? '👤' : '🔐'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Ошибка загрузки</Text>
+          <Text style={styles.errorDescription}>{loadError}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={loadPlaces}>
+            <Text style={styles.retryButtonText}>Повторить</Text>
+          </TouchableOpacity>
+        </View>
+        <NavigationMenu />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
+        <View style={styles.headerTop}>
+          <Text style={styles.headerTitle}>Культурный Уфа</Text>
+          <TouchableOpacity 
+            style={styles.authButton}
+            onPress={handleAuthPress}
+          >
+            <Text style={styles.authButtonText}>
+              {user ? '👤' : '🔐'}
+            </Text>
+          </TouchableOpacity>
+        </View>
         <View style={styles.searchContainer}>
           <TextInput
             style={styles.searchInput}
@@ -232,6 +294,11 @@ export default function HomeScreen() {
         keyExtractor={(category) => category.id}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.categoriesList}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>Места не найдены</Text>
+          </View>
+        }
       />
 
       <NavigationMenu />
@@ -249,6 +316,29 @@ const styles = StyleSheet.create({
     paddingTop: 50,
     paddingHorizontal: 16,
     paddingBottom: 16,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  authButton: {
+    padding: 8,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  authButtonText: {
+    fontSize: 20,
   },
   searchContainer: {
     flexDirection: 'row',
@@ -431,5 +521,45 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 16,
     color: '#666',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#511515',
+    marginBottom: 8,
+  },
+  errorDescription: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: '#511515',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
   },
 });

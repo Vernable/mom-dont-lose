@@ -1,7 +1,7 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { useEffect, createContext, useContext, useState } from 'react';
-import PocketBase from 'pocketbase';
 import { Platform } from 'react-native';
+import { pb } from './utilis/pb'; // Импортируем общий экземпляр
 
 // Типы для авторизации
 type User = {
@@ -37,13 +37,6 @@ const AuthContext = createContext<AuthContextType>({
 // Хук для использования авторизации
 export const useAuth = () => useContext(AuthContext);
 
-// PocketBase клиент - используем ваш IP
-const POCKETBASE_URL = 'http://192.168.1.10:8090';
-console.log('PocketBase URL:', POCKETBASE_URL);
-
-const pb = new PocketBase(POCKETBASE_URL);
-pb.autoCancellation(false);
-
 // Компонент для защиты роутов
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -51,13 +44,18 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
+    console.log('AuthGuard - user:', user, 'isLoading:', isLoading);
+    
     if (isLoading) return;
 
     const currentRoute = segments[0];
+    console.log('Current route:', currentRoute);
     
     if (!user && currentRoute !== 'welcome' && currentRoute !== 'auth') {
+      console.log('Redirecting to welcome - no user');
       router.replace('/welcome');
     } else if (user && (currentRoute === 'welcome' || currentRoute === 'auth')) {
+      console.log('Redirecting to home - user exists');
       router.replace('/');
     }
   }, [user, segments, isLoading]);
@@ -68,6 +66,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 export default function RootLayout() {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     checkAuthStatus();
@@ -81,34 +80,39 @@ export default function RootLayout() {
       const health = await pb.health.check();
       console.log('PocketBase health:', health);
       
-      if (pb.authStore.isValid) {
-        console.log('Token found, refreshing...');
-        await pb.collection('users').authRefresh();
+      console.log('Current auth state:', {
+        isValid: pb.authStore.isValid,
+        token: pb.authStore.token ? 'exists' : 'null',
+        model: pb.authStore.model ? pb.authStore.model.email : 'null'
+      });
+
+      if (pb.authStore.isValid && pb.authStore.model) {
+        console.log('User found in authStore:', pb.authStore.model.email);
         const userData = pb.authStore.model;
         
-        if (userData) {
-          console.log('User found:', userData.email);
-          setUser({
-            id: userData.id,
-            email: userData.email,
-            name: userData.firstname || userData.username || userData.email,
-            firstname: userData.firstname,
-            lastname: userData.lastname,
-            username: userData.username,
-            avatar: userData.avatar,
-            verified: userData.verified,
-            created: userData.created,
-            updated: userData.updated
-          });
-        }
+        setUser({
+          id: userData.id,
+          email: userData.email,
+          name: userData.firstname || userData.username || userData.email,
+          firstname: userData.firstname,
+          lastname: userData.lastname,
+          username: userData.username,
+          avatar: userData.avatar,
+          verified: userData.verified,
+          created: userData.created,
+          updated: userData.updated
+        });
       } else {
-        console.log('No valid token found');
+        console.log('No valid auth session found');
+        setUser(null);
       }
     } catch (error) {
       console.log('PocketBase connection error:', error);
       pb.authStore.clear();
+      setUser(null);
     } finally {
       setIsLoading(false);
+      console.log('Auth check completed, user:', user);
     }
   };
 
@@ -122,7 +126,7 @@ export default function RootLayout() {
       console.log('Login successful:', authData.record.email);
       
       const userData = authData.record;
-      setUser({
+      const newUser = {
         id: userData.id,
         email: userData.email,
         name: userData.firstname || userData.username || userData.email,
@@ -133,7 +137,10 @@ export default function RootLayout() {
         verified: userData.verified,
         created: userData.created,
         updated: userData.updated
-      });
+      };
+      
+      console.log('Setting user state:', newUser);
+      setUser(newUser);
       
       return true;
     } catch (error: any) {
@@ -166,7 +173,7 @@ export default function RootLayout() {
       // Автоматически логиним пользователя после регистрации
       const authData = await pb.collection('users').authWithPassword(email, password);
       
-      setUser({
+      const newUser = {
         id: userData.id,
         email: userData.email,
         name: userData.firstname || userData.email,
@@ -174,7 +181,10 @@ export default function RootLayout() {
         verified: userData.verified,
         created: userData.created,
         updated: userData.updated
-      });
+      };
+      
+      console.log('Setting user state after registration:', newUser);
+      setUser(newUser);
       
       return true;
     } catch (error: any) {
@@ -202,6 +212,8 @@ export default function RootLayout() {
     register,
     logout
   };
+
+  console.log('RootLayout render - user:', user, 'isLoading:', isLoading);
 
   return (
     <AuthContext.Provider value={authContextValue}>

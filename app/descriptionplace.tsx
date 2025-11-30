@@ -1,23 +1,37 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Dimensions, Modal, Alert } from 'react-native';
 import { useState, useEffect } from 'react';
 import NavigationMenu from './components/NavigationMenu';
-import PocketBase from 'pocketbase';
+import { pb } from './utilis/pb';
+import { useAuth } from './_layout';
 
 const { width: screenWidth } = Dimensions.get('window');
-const pb = new PocketBase('http://192.168.1.10:8090');
 
 export default function DescriptionPlace() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { user } = useAuth();
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
-  const [isFavorite, setIsFavorite] = useState(false);
+  const [showFavoriteModal, setShowFavoriteModal] = useState(false);
+  const [currentFavorite, setCurrentFavorite] = useState<any>(null);
   const [place, setPlace] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    console.log('Текущий статус авторизации на странице места:', { 
+      isValid: !!user, 
+      user 
+    });
+    
     loadPlace();
-  }, [params.id]);
+    if (user) {
+      console.log('Проверяем избранное для пользователя:', user.id);
+      checkIfFavorite();
+    } else {
+      console.log('Пользователь не авторизован, избранное не проверяем');
+      setCurrentFavorite(null);
+    }
+  }, [params.id, user]);
 
   const loadPlace = async () => {
     try {
@@ -32,12 +46,110 @@ export default function DescriptionPlace() {
     }
   };
 
+  const checkIfFavorite = async () => {
+    try {
+      if (!user) {
+        setCurrentFavorite(null);
+        return;
+      }
+
+      const favorites = await pb.collection('favorites').getList(1, 1, {
+        filter: `user = "${user.id}" && place = "${params.id}"`
+      });
+      
+      if (favorites.items.length > 0) {
+        setCurrentFavorite(favorites.items[0]);
+        console.log('Найдено избранное:', favorites.items[0]);
+      } else {
+        setCurrentFavorite(null);
+        console.log('Избранное не найдено');
+      }
+    } catch (error: any) {
+      console.error('Ошибка проверки избранного:', error);
+      setCurrentFavorite(null);
+    }
+  };
+
   const handleBack = () => {
     router.back();
   };
 
-  const toggleFavorite = () => {
-    setIsFavorite(!isFavorite);
+  const toggleFavoriteModal = () => {
+    if (!user) {
+      Alert.alert(
+        'Требуется авторизация',
+        'Войдите в аккаунт, чтобы добавлять места в избранное',
+        [
+          { text: 'Отмена', style: 'cancel' },
+          { text: 'Войти', onPress: () => router.push('/auth') }
+        ]
+      );
+      return;
+    }
+    setShowFavoriteModal(!showFavoriteModal);
+  };
+
+  const addToFavorites = async (status: string) => {
+    try {
+      if (!user) {
+        Alert.alert('Ошибка', 'Пользователь не авторизован');
+        return;
+      }
+
+      if (currentFavorite) {
+        await pb.collection('favorites').update(currentFavorite.id, {
+          status: status
+        });
+        console.log('Избранное обновлено');
+      } else {
+        await pb.collection('favorites').create({
+          user: user.id,
+          place: params.id,
+          status: status
+        });
+        console.log('Добавлено в избранное');
+      }
+
+      // Обновляем состояние после успешного добавления
+      await checkIfFavorite();
+      setShowFavoriteModal(false);
+      
+      // Показываем уведомление об успехе
+      Alert.alert('Успех', 'Место добавлено в избранное!');
+      
+    } catch (error: any) {
+      console.error('Ошибка добавления в избранное:', error);
+      Alert.alert('Ошибка', 'Не удалось добавить в избранное');
+    }
+  };
+
+  const removeFromFavorites = async () => {
+    try {
+      if (!user) {
+        Alert.alert('Ошибка', 'Пользователь не авторизован');
+        return;
+      }
+
+      if (currentFavorite) {
+        await pb.collection('favorites').delete(currentFavorite.id);
+        setCurrentFavorite(null);
+        console.log('Удалено из избранного');
+        Alert.alert('Успех', 'Место удалено из избранного!');
+      }
+      setShowFavoriteModal(false);
+    } catch (error: any) {
+      console.error('Ошибка удаления из избранного:', error);
+      Alert.alert('Ошибка', 'Не удалось удалить из избранного');
+    }
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'visited': return 'Посещал(а)';
+      case 'want_to_visit': return 'Хочу посетить';
+      case 'favorite': return 'Любимое место';
+      default: return 'В избранном';
+    }
   };
 
   const nextPhoto = () => {
@@ -99,8 +211,10 @@ export default function DescriptionPlace() {
           <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Место</Text>
-        <TouchableOpacity style={styles.favoriteButton} onPress={toggleFavorite}>
-          <Text style={styles.favoriteButtonText}>{isFavorite ? '❤️' : '🤍'}</Text>
+        <TouchableOpacity style={styles.favoriteButton} onPress={toggleFavoriteModal}>
+          <Text style={styles.favoriteButtonText}>
+            {currentFavorite ? '❤️' : '🤍'}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -154,6 +268,14 @@ export default function DescriptionPlace() {
               <Text style={styles.categoryText}>{place.expand?.category?.name || 'Другие места'}</Text>
             </View>
           </View>
+
+          {currentFavorite && (
+            <View style={styles.favoriteStatus}>
+              <Text style={styles.favoriteStatusText}>
+                {getStatusText(currentFavorite.status)}
+              </Text>
+            </View>
+          )}
 
           <View style={styles.address}>
             <Text style={styles.addressText}>📍 {place.address}</Text>
@@ -218,6 +340,61 @@ export default function DescriptionPlace() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Модальное окно выбора статуса */}
+      <Modal
+        visible={showFavoriteModal}
+        transparent={true}
+        animationType="slide"
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>
+              {currentFavorite ? 'Изменить статус' : 'Добавить в избранное'}
+            </Text>
+            
+            <TouchableOpacity 
+              style={styles.modalOption}
+              onPress={() => addToFavorites('visited')}
+            >
+              <Text style={styles.modalOptionEmoji}>✅</Text>
+              <Text style={styles.modalOptionText}>Посещал(а)</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.modalOption}
+              onPress={() => addToFavorites('want_to_visit')}
+            >
+              <Text style={styles.modalOptionEmoji}>📅</Text>
+              <Text style={styles.modalOptionText}>Хочу посетить</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.modalOption}
+              onPress={() => addToFavorites('favorite')}
+            >
+              <Text style={styles.modalOptionEmoji}>❤️</Text>
+              <Text style={styles.modalOptionText}>Любимое место</Text>
+            </TouchableOpacity>
+
+            {currentFavorite && (
+              <TouchableOpacity 
+                style={styles.removeOption}
+                onPress={removeFromFavorites}
+              >
+                <Text style={styles.removeOptionText}>🗑️ Удалить из избранного</Text>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity 
+              style={styles.cancelButton}
+              onPress={toggleFavoriteModal}
+            >
+              <Text style={styles.cancelButtonText}>Отмена</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       <NavigationMenu />
     </View>
@@ -361,6 +538,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#0c5460',
   },
+  favoriteStatus: {
+    backgroundColor: '#e8f5e8',
+    padding: 8,
+    borderRadius: 8,
+    marginBottom: 12,
+    alignSelf: 'flex-start',
+  },
+  favoriteStatusText: {
+    fontSize: 14,
+    color: '#2e7d32',
+    fontWeight: '500',
+  },
   address: {
     backgroundColor: '#f8f9fa',
     padding: 12,
@@ -462,5 +651,66 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  // Стили для модального окна
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    paddingBottom: 40,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#511515',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  modalOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  modalOptionEmoji: {
+    fontSize: 20,
+    marginRight: 12,
+  },
+  modalOptionText: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
+  },
+  removeOption: {
+    padding: 16,
+    backgroundColor: '#ffebee',
+    borderRadius: 12,
+    marginBottom: 12,
+    alignItems: 'center',
+  },
+  removeOptionText: {
+    fontSize: 16,
+    color: '#d32f2f',
+    fontWeight: '500',
+  },
+  cancelButton: {
+    padding: 16,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '500',
   },
 });

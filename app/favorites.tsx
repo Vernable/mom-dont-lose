@@ -1,48 +1,212 @@
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Dimensions } from 'react-native';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'expo-router';
 import NavigationMenu from './components/NavigationMenu';
-//favorites.tsx
-const favoritePlaces = [
-  {
-    id: '1',
-    name: 'Башкирский государственный театр оперы и балета',
-    category: 'Театр',
-    rating: 4.8,
-    image: require('../assets/images/bot.png'),
-  },
-  {
-    id: '2',
-    name: 'Парк культуры и отдыха им. М. Гафури',
-    category: 'Парк',
-    rating: 4.5,
-    image: require('../assets/images/bot.png'),
-  },
-  {
-    id: '3',
-    name: 'Уфимский планетарий',
-    category: 'Планетарий',
-    rating: 4.7,
-    image: require('../assets/images/bot.png'),
-  },
-];
+import { pb } from './utilis/pb';
+import { useAuth } from './_layout';
+
+const { width: screenWidth } = Dimensions.get('window');
 
 export default function FavoritesScreen() {
-  const renderFavoriteItem = ({ item }: { item: any }) => (
-    <TouchableOpacity style={styles.favoriteItem}>
-      <View style={styles.itemImage}>
-        <Text style={styles.itemImageText}>🏛️</Text>
-      </View>
-      <View style={styles.itemInfo}>
-        <Text style={styles.itemName} numberOfLines={2}>{item.name}</Text>
-        <View style={styles.itemDetails}>
-          <Text style={styles.itemCategory}>{item.category}</Text>
-          <Text style={styles.itemRating}>⭐ {item.rating}</Text>
+  const router = useRouter();
+  const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState('all');
+  const [favorites, setFavorites] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const loadFavorites = async () => {
+    try {
+      console.log('=== ОТЛАДКА ===');
+      console.log('ID пользователя из контекста:', user?.id);
+      console.log('Email пользователя:', user?.email);
+      
+      // Получим текущего пользователя из PocketBase чтобы сравнить ID
+      if (pb.authStore.model) {
+        console.log('ID пользователя из authStore:', pb.authStore.model.id);
+        console.log('Email пользователя из authStore:', pb.authStore.model.email);
+      }
+      
+      // Запрос с ID из authStore (более надежно)
+      const currentUserId = pb.authStore.model?.id;
+      const result = await pb.collection('favorites').getList(1, 50, {
+        filter: `user = "${currentUserId}"`
+      });
+      
+      console.log('Найдено избранных записей:', result.items.length);
+      console.log('Записи:', result.items);
+      
+      const favoritesWithPlaces = await Promise.all(
+        result.items.map(async (fav) => {
+          try {
+            const place = await pb.collection('places').getOne(fav.place, {
+              expand: 'category'
+            });
+            return {
+              ...fav,
+              expand: {
+                place: place
+              }
+            };
+          } catch (error) {
+            console.error('Ошибка загрузки места:', fav.place, error);
+            return fav;
+          }
+        })
+      );
+      
+      setFavorites(favoritesWithPlaces);
+    } catch (error) {
+      console.error('Ошибка загрузки избранного:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      loadFavorites();
+    } else {
+      setIsLoading(false);
+      setFavorites([]);
+    }
+  }, [user]);
+
+  const removeFromFavorites = async (favoriteId: string) => {
+    try {
+      await pb.collection('favorites').delete(favoriteId);
+      // Обновляем список после удаления
+      setFavorites(favorites.filter(fav => fav.id !== favoriteId));
+      console.log('Удалено из избранного:', favoriteId);
+    } catch (error) {
+      console.error('Ошибка удаления из избранного:', error);
+    }
+  };
+
+  const handlePlacePress = (placeId: string) => {
+    router.push({
+      pathname: '/descriptionplace',
+      params: { id: placeId }
+    });
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'visited': return 'Посещал(а)';
+      case 'want_to_visit': return 'Хочу посетить';
+      case 'favorite': return 'Любимое место';
+      default: return 'В избранном';
+    }
+  };
+
+  const getStatusEmoji = (status: string) => {
+    switch (status) {
+      case 'visited': return '✅';
+      case 'want_to_visit': return '📅';
+      case 'favorite': return '❤️';
+      default: return '⭐';
+    }
+  };
+
+  const filteredFavorites = favorites.filter(fav => {
+    if (activeTab === 'all') return true;
+    return fav.status === activeTab;
+  });
+
+  const getTabCount = (status: string) => {
+    if (status === 'all') return favorites.length;
+    return favorites.filter(fav => fav.status === status).length;
+  };
+
+  const renderFavoriteItem = ({ item }: { item: any }) => {
+    const place = item.expand?.place;
+    
+    if (!place) {
+      console.log('Place не найден для избранного:', item.id);
+      return null;
+    }
+
+    return (
+      <TouchableOpacity 
+        style={styles.favoriteItem}
+        onPress={() => handlePlacePress(place.id)}
+      >
+        <View style={styles.itemImage}>
+          {place.photos && place.photos.length > 0 ? (
+            <Image 
+              source={{ uri: pb.files.getURL(place, place.photos[0]) }}
+              style={styles.photo}
+              resizeMode="cover"
+            />
+          ) : (
+            <Text style={styles.itemImageText}>🏛️</Text>
+          )}
         </View>
-      </View>
-      <TouchableOpacity style={styles.removeButton}>
-        <Text style={styles.removeButtonText}>×</Text>
+        
+        <View style={styles.itemInfo}>
+          <Text style={styles.itemName} numberOfLines={2}>
+            {place.name}
+          </Text>
+          
+          <View style={styles.statusContainer}>
+            <Text style={styles.statusText}>
+              {getStatusEmoji(item.status)} {getStatusText(item.status)}
+            </Text>
+          </View>
+          
+          <View style={styles.itemDetails}>
+            <Text style={styles.itemCategory}>
+              {place.expand?.category?.name || 'Другие места'}
+            </Text>
+            <Text style={styles.itemRating}>
+              ⭐ {place.external_rating || 'Нет оценок'}
+            </Text>
+          </View>
+        </View>
+        
+        <TouchableOpacity 
+          style={styles.removeButton}
+          onPress={() => removeFromFavorites(item.id)}
+        >
+          <Text style={styles.removeButtonText}>×</Text>
+        </TouchableOpacity>
       </TouchableOpacity>
-    </TouchableOpacity>
-  );
+    );
+  };
+
+  const tabs = [
+    { id: 'all', name: 'Все', emoji: '⭐' },
+    { id: 'visited', name: 'Посещал', emoji: '✅' },
+    { id: 'want_to_visit', name: 'Хочу посетить', emoji: '📅' },
+    { id: 'favorite', name: 'Любимые', emoji: '❤️' },
+  ];
+
+  // Если пользователь не авторизован
+  if (!user && !isLoading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Избранное</Text>
+          <Text style={styles.subtitle}>Сохранённые места</Text>
+        </View>
+        
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyStateEmoji}>🔐</Text>
+          <Text style={styles.emptyStateTitle}>Требуется авторизация</Text>
+          <Text style={styles.emptyStateText}>
+            Войдите в аккаунт, чтобы просматривать избранные места
+          </Text>
+          <TouchableOpacity 
+            style={styles.authButton}
+            onPress={() => router.push('/auth')}
+          >
+            <Text style={styles.authButtonText}>Войти в аккаунт</Text>
+          </TouchableOpacity>
+        </View>
+
+        <NavigationMenu />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -51,9 +215,34 @@ export default function FavoritesScreen() {
         <Text style={styles.subtitle}>Сохранённые места</Text>
       </View>
 
-      {favoritePlaces.length > 0 ? (
+      {/* Табы */}
+      <View style={styles.tabsContainer}>
+        {tabs.map(tab => (
+          <TouchableOpacity
+            key={tab.id}
+            style={[
+              styles.tab,
+              activeTab === tab.id && styles.tabActive
+            ]}
+            onPress={() => setActiveTab(tab.id)}
+          >
+            <Text style={[
+              styles.tabText,
+              activeTab === tab.id && styles.tabTextActive
+            ]}>
+              {tab.emoji} {tab.name} ({getTabCount(tab.id)})
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <Text>Загрузка избранных...</Text>
+        </View>
+      ) : filteredFavorites.length > 0 ? (
         <FlatList
-          data={favoritePlaces}
+          data={filteredFavorites}
           renderItem={renderFavoriteItem}
           keyExtractor={item => item.id}
           contentContainerStyle={styles.listContent}
@@ -61,10 +250,20 @@ export default function FavoritesScreen() {
         />
       ) : (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyStateEmoji}>❤️</Text>
-          <Text style={styles.emptyStateTitle}>Нет избранных мест</Text>
+          <Text style={styles.emptyStateEmoji}>
+            {activeTab === 'visited' ? '✅' : 
+             activeTab === 'want_to_visit' ? '📅' : 
+             activeTab === 'favorite' ? '❤️' : '⭐'}
+          </Text>
+          <Text style={styles.emptyStateTitle}>
+            {activeTab === 'visited' ? 'Нет посещенных мест' : 
+             activeTab === 'want_to_visit' ? 'Нет мест для посещения' : 
+             activeTab === 'favorite' ? 'Нет любимых мест' : 'Нет избранных мест'}
+          </Text>
           <Text style={styles.emptyStateText}>
-            Добавляйте места в избранное, чтобы вернуться к ним позже
+            {activeTab === 'visited' ? 'Отмечайте посещенные места в карточке места' : 
+             activeTab === 'want_to_visit' ? 'Добавляйте места в список желаний' : 
+             activeTab === 'favorite' ? 'Добавляйте места в любимые' : 'Добавляйте места в избранное, чтобы вернуться к ним позже'}
           </Text>
         </View>
       )}
@@ -95,6 +294,32 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: 'rgba(255,255,255,0.8)',
   },
+  tabsContainer: {
+    flexDirection: 'row',
+    backgroundColor: 'white',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    borderRadius: 8,
+    marginHorizontal: 2,
+  },
+  tabActive: {
+    backgroundColor: '#511515',
+  },
+  tabText: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  tabTextActive: {
+    color: 'white',
+  },
   listContent: {
     padding: 16,
   },
@@ -112,13 +337,18 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   itemImage: {
-    width: 50,
-    height: 50,
+    width: 60,
+    height: 60,
     backgroundColor: '#511515',
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
+    overflow: 'hidden',
+  },
+  photo: {
+    width: '100%',
+    height: '100%',
   },
   itemImageText: {
     fontSize: 20,
@@ -132,6 +362,14 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#511515',
     marginBottom: 4,
+  },
+  statusContainer: {
+    marginBottom: 4,
+  },
+  statusText: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '500',
   },
   itemDetails: {
     flexDirection: 'row',
@@ -182,5 +420,22 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
     lineHeight: 22,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  authButton: {
+    backgroundColor: '#511515',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  authButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

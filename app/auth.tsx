@@ -94,7 +94,7 @@ export default function AuthScreen() {
         
         <TextInput
           style={styles.input}
-          placeholder="Пароль (минимум 8 символов)" // ИЗМЕНЕНО
+          placeholder="Пароль (минимум 8 символов)"
           value={password}
           onChangeText={setPassword}
           secureTextEntry
@@ -133,8 +133,6 @@ export default function AuthScreen() {
       >
         <Text style={styles.backButtonText}>← Назад</Text>
       </TouchableOpacity>
-
-     
     </View>
   );
 }
@@ -201,19 +199,4 @@ const styles = StyleSheet.create({
     color: '#511515',
     fontSize: 16,
   },
-  demoContainer: {
-    marginTop: 30,
-    padding: 15,
-    backgroundColor: '#e8f4f8',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#b8d8e8',
-  },
-  demoTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#2c5aa0',
-    marginBottom: 5,
-  },
- 
 });
