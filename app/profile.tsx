@@ -1,14 +1,155 @@
 import { useRouter } from 'expo-router';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Alert } from 'react-native';
 import { useAuth } from './_layout';
 import NavigationMenu from './components/NavigationMenu';
+import * as ImagePicker from 'expo-image-picker';
+import { useState } from 'react';
+import { pb } from './utilis/pb';
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleLogout = () => {
     logout();
+  };
+
+  const handleViewedPlaces = () => {
+    // Здесь можно добавить навигацию на экран просмотренных мест
+    Alert.alert('Просмотренные места', 'Функция в разработке');
+  };
+
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    
+    if (status !== 'granted') {
+      Alert.alert('Ошибка', 'Необходимо разрешение на доступ к галерее');
+      return;
+    }
+
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets && result.assets[0]) {
+      await uploadImage(result.assets[0].uri);
+    }
+  };
+
+  const takePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    
+    if (status !== 'granted') {
+      Alert.alert('Ошибка', 'Необходимо разрешение на доступ к камере');
+      return;
+    }
+
+    let result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets && result.assets[0]) {
+      await uploadImage(result.assets[0].uri);
+    }
+  };
+
+  const deleteAvatar = async () => {
+    if (!user) return;
+
+    try {
+      setIsLoading(true);
+
+      // Удаляем аватар пользователя в PocketBase
+      const updatedUser = await pb.collection('users').update(user.id, {
+        'avatar': null
+      });
+
+      // Обновляем данные в контексте аутентификации
+      if (updateUser) {
+        updateUser(updatedUser);
+      }
+
+      Alert.alert('Успех', 'Аватар удален');
+    } catch (error: any) {
+      console.error('Ошибка удаления аватара:', error);
+      Alert.alert('Ошибка', 'Не удалось удалить аватар');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const showImagePickerOptions = () => {
+    const options: {
+      text: string;
+      onPress?: () => void | Promise<void>;
+      style?: 'default' | 'cancel' | 'destructive';
+    }[] = [
+      {
+        text: 'Камера',
+        onPress: takePhoto,
+      },
+      {
+        text: 'Галерея',
+        onPress: pickImage,
+      },
+    ];
+
+    // Добавляем опцию удаления только если аватар существует
+    if (user?.avatar) {
+      options.push({
+        text: 'Удалить аватар',
+        onPress: deleteAvatar,
+        style: 'destructive',
+      });
+    }
+
+    options.push({
+      text: 'Отмена',
+      style: 'cancel',
+    });
+
+    Alert.alert(
+      'Сменить аватар',
+      'Выберите действие',
+      options
+    );
+  };
+
+  const uploadImage = async (uri: string) => {
+    if (!user) return;
+
+    try {
+      setIsLoading(true);
+
+      // Создаем FormData для загрузки файла
+      const formData = new FormData();
+      formData.append('avatar', {
+        uri,
+        type: 'image/jpeg',
+        name: 'avatar.jpg',
+      } as any);
+
+      // Обновляем аватар пользователя в PocketBase
+      const updatedUser = await pb.collection('users').update(user.id, formData);
+
+      // Обновляем данные в контексте аутентификации
+      if (updateUser) {
+        updateUser(updatedUser);
+      }
+
+      Alert.alert('Успех', 'Аватар обновлен');
+    } catch (error: any) {
+      console.error('Ошибка загрузки аватара:', error);
+      Alert.alert('Ошибка', 'Не удалось обновить аватар');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -21,13 +162,25 @@ export default function ProfileScreen() {
           >
             {/* Фото профиля по центру */}
             <View style={styles.photoSection}>
-              <View style={styles.photoContainer}>
+              <TouchableOpacity 
+                style={styles.photoContainer}
+                onPress={showImagePickerOptions}
+                disabled={isLoading}
+              >
                 <Image 
-                  source={user.avatar ? { uri: user.avatar } : require('../assets/images/zaglushka.jpg')}
+                  source={user.avatar ? { uri: pb.files.getUrl(user, user.avatar) } : require('../assets/images/zaglushka.jpg')}
                   style={styles.profilePhoto}
                   resizeMode="cover"
                 />
-              </View>
+                <View style={styles.cameraIconContainer}>
+                  <Text style={styles.cameraIcon}>📷</Text>
+                </View>
+                {isLoading && (
+                  <View style={styles.loadingOverlay}>
+                    <Text style={styles.loadingText}>Загрузка...</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
               <Text style={styles.userUsername}>@{user.username || 'username'}</Text>
             </View>
 
@@ -81,15 +234,19 @@ export default function ProfileScreen() {
                 <Text style={styles.actionButtonText}>✏️ Редактировать профиль</Text>
               </TouchableOpacity>
               
-              <TouchableOpacity style={styles.actionItem}>
-                <View style={styles.actionCheckbox} />
-                <Text style={styles.actionText}>Недавно просмотренные места</Text>
+              <TouchableOpacity 
+                style={styles.actionButton}
+                onPress={handleViewedPlaces}
+              >
+                <Text style={styles.actionButtonText}>👁️ Недавно просмотренные места</Text>
               </TouchableOpacity>
 
               {/* Кнопка выхода в разделе Действия */}
-              <TouchableOpacity style={styles.actionItem} onPress={handleLogout}>
-                <View style={styles.actionCheckbox} />
-                <Text style={styles.actionText}>Выйти из приложения</Text>
+              <TouchableOpacity 
+                style={[styles.actionButton, styles.logoutButton]}
+                onPress={handleLogout}
+              >
+                <Text style={[styles.actionButtonText, styles.logoutButtonText]}>🚪 Выйти из приложения</Text>
               </TouchableOpacity>
             </View>
 
@@ -125,7 +282,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     padding: 16,
-    paddingBottom: 100, // Большой отступ снизу для навигационного меню
+    paddingBottom: 100,
   },
   photoSection: {
     alignItems: 'center',
@@ -147,10 +304,43 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderWidth: 3,
     borderColor: '#511515',
+    position: 'relative',
   },
   profilePhoto: {
     width: '100%',
     height: '100%',
+  },
+  cameraIconContainer: {
+    position: 'absolute',
+    bottom: 5,
+    right: 5,
+    backgroundColor: '#511515',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'white',
+  },
+  cameraIcon: {
+    fontSize: 16,
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 60,
+  },
+  loadingText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   userUsername: {
     fontSize: 20,
@@ -200,13 +390,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#e0e0e0',
     marginVertical: 16,
   },
-  // Добавленные стили для actionButton
   actionButton: {
     backgroundColor: '#511515',
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -218,36 +407,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-  actionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+  logoutButton: {
+    backgroundColor: '#dc3545',
+    marginTop: 8,
   },
-  actionCheckbox: {
-    width: 20,
-    height: 20,
-    borderWidth: 2,
-    borderColor: '#511515',
-    borderRadius: 4,
-    marginRight: 12,
-  },
-  actionText: {
-    fontSize: 16,
-    color: '#333',
-    fontWeight: '500',
-    flex: 1,
+  logoutButtonText: {
+    color: 'white',
   },
   bottomSpacer: {
-    height: 80, // Дополнительный отступ
+    height: 80,
   },
   guestContent: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-    paddingBottom: 100, // Отступ для гостевого режима
+    paddingBottom: 100,
   },
   guestText: {
     fontSize: 18,
