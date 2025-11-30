@@ -14,7 +14,7 @@ import { useRouter } from 'expo-router';
 import NavigationMenu from './components/NavigationMenu';
 
 const { width: screenWidth } = Dimensions.get('window');
-
+//index.tsx
 // Мок-данные для категорий и мест
 const mockData = [
   {

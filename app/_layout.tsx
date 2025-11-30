@@ -1,11 +1,20 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { useEffect, createContext, useContext, useState } from 'react';
+import PocketBase from 'pocketbase';
+import { Platform } from 'react-native';
 
 // Типы для авторизации
 type User = {
   id: string;
   email: string;
   name: string;
+  firstname?: string;
+  lastname?: string;
+  username?: string;
+  avatar?: string;
+  verified?: boolean;
+  created?: string;
+  updated?: string;
 };
 
 type AuthContextType = {
@@ -28,21 +37,12 @@ const AuthContext = createContext<AuthContextType>({
 // Хук для использования авторизации
 export const useAuth = () => useContext(AuthContext);
 
-// Моковые пользователи
-const mockUsers = [
-  {
-    id: '1',
-    email: 'user@test.com',
-    password: 'password123',
-    name: 'Тестовый Пользователь'
-  },
-  {
-    id: '2', 
-    email: 'admin@test.com',
-    password: 'admin123',
-    name: 'Администратор'
-  }
-];
+// PocketBase клиент - используем ваш IP
+const POCKETBASE_URL = 'http://192.168.1.10:8090';
+console.log('PocketBase URL:', POCKETBASE_URL);
+
+const pb = new PocketBase(POCKETBASE_URL);
+pb.autoCancellation(false);
 
 // Компонент для защиты роутов
 function AuthGuard({ children }: { children: React.ReactNode }) {
@@ -55,16 +55,9 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 
     const currentRoute = segments[0];
     
-    console.log('Auth check:', { user: !!user, currentRoute });
-    
-    // Если пользователь не авторизован и пытается получить доступ не к welcome/auth
     if (!user && currentRoute !== 'welcome' && currentRoute !== 'auth') {
-      console.log('Redirecting to welcome');
       router.replace('/welcome');
-    } 
-    // Если пользователь авторизован и находится на welcome/auth
-    else if (user && (currentRoute === 'welcome' || currentRoute === 'auth')) {
-      console.log('Redirecting to home');
+    } else if (user && (currentRoute === 'welcome' || currentRoute === 'auth')) {
       router.replace('/');
     }
   }, [user, segments, isLoading]);
@@ -76,66 +69,129 @@ export default function RootLayout() {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Проверяем авторизацию при загрузке (имитация проверки токена)
   useEffect(() => {
     checkAuthStatus();
   }, []);
 
   const checkAuthStatus = async () => {
-    // Имитация загрузки данных пользователя
-    setTimeout(() => {
-      // В реальном приложении здесь была бы проверка токена
-      // Для демо оставляем пользователя неавторизованным
+    try {
+      console.log('Checking PocketBase connection...');
+      
+      // Проверяем подключение к PocketBase
+      const health = await pb.health.check();
+      console.log('PocketBase health:', health);
+      
+      if (pb.authStore.isValid) {
+        console.log('Token found, refreshing...');
+        await pb.collection('users').authRefresh();
+        const userData = pb.authStore.model;
+        
+        if (userData) {
+          console.log('User found:', userData.email);
+          setUser({
+            id: userData.id,
+            email: userData.email,
+            name: userData.firstname || userData.username || userData.email,
+            firstname: userData.firstname,
+            lastname: userData.lastname,
+            username: userData.username,
+            avatar: userData.avatar,
+            verified: userData.verified,
+            created: userData.created,
+            updated: userData.updated
+          });
+        }
+      } else {
+        console.log('No valid token found');
+      }
+    } catch (error) {
+      console.log('PocketBase connection error:', error);
+      pb.authStore.clear();
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   // Функция входа
   const login = async (email: string, password: string): Promise<boolean> => {
-    // Имитация загрузки
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Поиск пользователя в мок данных
-    const foundUser = mockUsers.find(u => u.email === email && u.password === password);
-    
-    if (foundUser) {
-      const userData: User = {
-        id: foundUser.id,
-        email: foundUser.email,
-        name: foundUser.name
-      };
-      setUser(userData);
+    try {
+      console.log('Attempting login for:', email);
+      
+      const authData = await pb.collection('users').authWithPassword(email, password);
+      
+      console.log('Login successful:', authData.record.email);
+      
+      const userData = authData.record;
+      setUser({
+        id: userData.id,
+        email: userData.email,
+        name: userData.firstname || userData.username || userData.email,
+        firstname: userData.firstname,
+        lastname: userData.lastname,
+        username: userData.username,
+        avatar: userData.avatar,
+        verified: userData.verified,
+        created: userData.created,
+        updated: userData.updated
+      });
+      
       return true;
+    } catch (error: any) {
+      console.error('Login error:', {
+        message: error.message,
+        status: error.status,
+        data: error.data
+      });
+      
+      return false;
     }
-    
-    return false;
   };
 
   // Функция регистрации
   const register = async (email: string, password: string, name: string): Promise<boolean> => {
-    // Имитация загрузки
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Проверяем, нет ли уже пользователя с таким email
-    const userExists = mockUsers.find(u => u.email === email);
-    if (userExists) {
+    try {
+      console.log('Attempting registration for:', email);
+      
+      // Создаем пользователя
+      const userData = await pb.collection('users').create({
+        email,
+        password,
+        passwordConfirm: password,
+        firstname: name,
+        emailVisibility: true
+      });
+
+      console.log('Registration successful, logging in...');
+
+      // Автоматически логиним пользователя после регистрации
+      const authData = await pb.collection('users').authWithPassword(email, password);
+      
+      setUser({
+        id: userData.id,
+        email: userData.email,
+        name: userData.firstname || userData.email,
+        firstname: userData.firstname,
+        verified: userData.verified,
+        created: userData.created,
+        updated: userData.updated
+      });
+      
+      return true;
+    } catch (error: any) {
+      console.error('Registration error:', {
+        message: error.message,
+        status: error.status,
+        data: error.data
+      });
+      
       return false;
     }
-    
-    // Создаем нового пользователя
-    const newUser: User = {
-      id: Date.now().toString(),
-      email,
-      name
-    };
-    
-    // В реальном приложении здесь был бы запрос к API
-    setUser(newUser);
-    return true;
   };
 
   // Функция выхода
   const logout = () => {
+    console.log('Logging out...');
+    pb.authStore.clear();
     setUser(null);
   };
 

@@ -2,7 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Dimensions } from 'react-native';
 import { useState } from 'react';
 import NavigationMenu from './components/NavigationMenu';
-
+//desriptionplace.tsx
 const { width: screenWidth } = Dimensions.get('window');
 
 // Мок данные для театра

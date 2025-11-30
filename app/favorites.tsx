@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image } from 'react-native';
 import NavigationMenu from './components/NavigationMenu';
-
+//favorites.tsx
 const favoritePlaces = [
   {
     id: '1',

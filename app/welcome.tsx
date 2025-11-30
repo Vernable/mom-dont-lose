@@ -13,21 +13,14 @@ export default function WelcomeScreen() {
           resizeMode="cover"
         />
       </View>
-      <Text style={styles.title}>Добро пожаловать!</Text>
-      <Text style={styles.subtitle}>Откройте для себя лучшие места города</Text>
+      <Text style={styles.title}>Мама не теряй</Text>
+      
       
       <TouchableOpacity 
         style={styles.button}
         onPress={() => router.push('/auth')}
       >
         <Text style={styles.buttonText}>Войти / Зарегистрироваться</Text>
-      </TouchableOpacity>
-      
-      <TouchableOpacity 
-        style={styles.secondaryButton}
-        onPress={() => router.push('/')}
-      >
-        <Text style={styles.secondaryButtonText}>Продолжить как гость</Text>
       </TouchableOpacity>
     </View>
   );
@@ -77,26 +70,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '100%',
     maxWidth: 300,
-    marginBottom: 15,
   },
   buttonText: {
     color: 'white',
     fontSize: 18,
     fontWeight: 'bold',
-  },
-  secondaryButton: {
-    backgroundColor: 'transparent',
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    width: '100%',
-    maxWidth: 300,
-    borderWidth: 1,
-    borderColor: '#511515',
-  },
-  secondaryButtonText: {
-    color: '#511515',
-    fontSize: 16,
-    fontWeight: '500',
   },
 });

@@ -3,6 +3,7 @@ import React from 'react';
 import { Image, ImageSourcePropType, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useAuth } from '../_layout';
 
+// NavigationMenu
 interface MenuItem {
   id: number;
   title: string;

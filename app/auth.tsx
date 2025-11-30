@@ -23,6 +23,19 @@ export default function AuthScreen() {
       return;
     }
 
+    // Базовая валидация email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert('Ошибка', 'Пожалуйста, введите корректный email');
+      return;
+    }
+
+    // Валидация пароля - ИЗМЕНЕНО НА 8 СИМВОЛОВ
+    if (password.length < 8) {
+      Alert.alert('Ошибка', 'Пароль должен содержать минимум 8 символов');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -31,18 +44,22 @@ export default function AuthScreen() {
       if (isLogin) {
         success = await login(email, password);
         if (!success) {
-          Alert.alert('Ошибка', 'Неверный email или пароль');
+          Alert.alert('Ошибка входа', 'Неверный email или пароль. Проверьте правильность введенных данных.');
+        } else {
+          Alert.alert('Успешно', 'Вход выполнен!');
         }
       } else {
         success = await register(email, password, name);
         if (!success) {
-          Alert.alert('Ошибка', 'Пользователь с таким email уже существует');
+          Alert.alert('Ошибка регистрации', 'Не удалось создать аккаунт. Возможно, пользователь с таким email уже существует или данные не соответствуют требованиям.');
+        } else {
+          Alert.alert('Успешно', 'Аккаунт создан!');
         }
       }
       
-      // При успешной авторизации автоматически переходим на главную
     } catch (error) {
-      Alert.alert('Ошибка', 'Произошла ошибка при авторизации');
+      console.error('Auth error:', error);
+      Alert.alert('Ошибка', 'Произошла непредвиденная ошибка при авторизации');
     } finally {
       setIsLoading(false);
     }
@@ -77,7 +94,7 @@ export default function AuthScreen() {
         
         <TextInput
           style={styles.input}
-          placeholder="Пароль"
+          placeholder="Пароль (минимум 8 символов)" // ИЗМЕНЕНО
           value={password}
           onChangeText={setPassword}
           secureTextEntry
@@ -117,12 +134,7 @@ export default function AuthScreen() {
         <Text style={styles.backButtonText}>← Назад</Text>
       </TouchableOpacity>
 
-      {/* Тестовые данные для демо */}
-      <View style={styles.demoContainer}>
-        <Text style={styles.demoTitle}>Тестовые данные:</Text>
-        <Text style={styles.demoText}>Email: user@test.com</Text>
-        <Text style={styles.demoText}>Пароль: password123</Text>
-      </View>
+     
     </View>
   );
 }
@@ -203,8 +215,5 @@ const styles = StyleSheet.create({
     color: '#2c5aa0',
     marginBottom: 5,
   },
-  demoText: {
-    fontSize: 12,
-    color: '#2c5aa0',
-  },
+ 
 });

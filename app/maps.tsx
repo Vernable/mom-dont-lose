@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-nati
 import NavigationMenu from './components/NavigationMenu';
 
 const { width: screenWidth } = Dimensions.get('window');
-
+//maps.tsx
 export default function MapsScreen() {
   return (
     <View style={styles.container}>

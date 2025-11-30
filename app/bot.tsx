@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, FlatList } from 'react-native';
 import { useState } from 'react';
 import NavigationMenu from './components/NavigationMenu';
-
+//bot.tsx
 type Message = {
   id: string;
   text: string;
