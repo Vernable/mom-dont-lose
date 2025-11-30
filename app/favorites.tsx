@@ -184,10 +184,7 @@ export default function FavoritesScreen() {
   if (!user && !isLoading) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Избранное</Text>
-          <Text style={styles.subtitle}>Сохранённые места</Text>
-        </View>
+        <View style={styles.header} />
         
         <View style={styles.emptyState}>
           <Text style={styles.emptyStateEmoji}>🔐</Text>
@@ -210,10 +207,7 @@ export default function FavoritesScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Избранное</Text>
-        <Text style={styles.subtitle}>Сохранённые места</Text>
-      </View>
+      <View style={styles.header} />
 
       {/* Табы */}
       <View style={styles.tabsContainer}>
@@ -283,16 +277,6 @@ const styles = StyleSheet.create({
     paddingTop: 50,
     paddingHorizontal: 16,
     paddingBottom: 16,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: 'white',
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.8)',
   },
   tabsContainer: {
     flexDirection: 'row',

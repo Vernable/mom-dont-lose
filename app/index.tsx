@@ -123,7 +123,7 @@ export default function HomeScreen() {
       
       const result = await pb.collection('places').getList(1, 50, {
         expand: 'category',
-        requestKey: 'home_places' // Добавляем ключ для кэширования
+        requestKey: 'home_places'
       });
       
       console.log('Загружено мест:', result.items.length);
@@ -176,14 +176,6 @@ export default function HomeScreen() {
     setSearchQuery('');
   };
 
-  const handleAuthPress = () => {
-    if (user) {
-      router.push('/profile');
-    } else {
-      router.push('/auth');
-    }
-  };
-
   const renderPlaceCard = ({ item }: { item: any }) => (
     <PlaceCard item={item} onPress={handlePlacePress} />
   );
@@ -209,17 +201,7 @@ export default function HomeScreen() {
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <View style={styles.headerTop}>
-            <Text style={styles.headerTitle}>Культурный Уфа</Text>
-            <TouchableOpacity 
-              style={styles.authButton}
-              onPress={handleAuthPress}
-            >
-              <Text style={styles.authButtonText}>
-                {user ? '👤' : '🔐'}
-              </Text>
-            </TouchableOpacity>
-          </View>
+          <View style={styles.headerTop} />
         </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#511515" />
@@ -234,17 +216,7 @@ export default function HomeScreen() {
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <View style={styles.headerTop}>
-            <Text style={styles.headerTitle}>Культурный Уфа</Text>
-            <TouchableOpacity 
-              style={styles.authButton}
-              onPress={handleAuthPress}
-            >
-              <Text style={styles.authButtonText}>
-                {user ? '👤' : '🔐'}
-              </Text>
-            </TouchableOpacity>
-          </View>
+          <View style={styles.headerTop} />
         </View>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Ошибка загрузки</Text>
@@ -261,17 +233,7 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <View style={styles.headerTop}>
-          <Text style={styles.headerTitle}>Культурный Уфа</Text>
-          <TouchableOpacity 
-            style={styles.authButton}
-            onPress={handleAuthPress}
-          >
-            <Text style={styles.authButtonText}>
-              {user ? '👤' : '🔐'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <View style={styles.headerTop} />
         <View style={styles.searchContainer}>
           <TextInput
             style={styles.searchInput}
@@ -318,27 +280,7 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   headerTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     marginBottom: 12,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: 'white',
-  },
-  authButton: {
-    padding: 8,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 20,
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  authButtonText: {
-    fontSize: 20,
   },
   searchContainer: {
     flexDirection: 'row',

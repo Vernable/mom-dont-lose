@@ -23,6 +23,7 @@ type AuthContextType = {
   login: (email: string, password: string) => Promise<boolean>;
   register: (email: string, password: string, name: string) => Promise<boolean>;
   logout: () => void;
+  updateUser: (newUserData: Partial<User>) => void; // Добавляем updateUser в тип
 };
 
 // Создаем контекст
@@ -32,6 +33,7 @@ const AuthContext = createContext<AuthContextType>({
   login: async () => false,
   register: async () => false,
   logout: () => {},
+  updateUser: () => {}, // Добавляем пустую функцию по умолчанию
 });
 
 // Хук для использования авторизации
@@ -205,12 +207,24 @@ export default function RootLayout() {
     setUser(null);
   };
 
+  // Функция обновления данных пользователя
+  const updateUser = (newUserData: Partial<User>) => {
+    setUser(prevUser => {
+      if (!prevUser) return prevUser;
+      return {
+        ...prevUser,
+        ...newUserData
+      };
+    });
+  };
+
   const authContextValue: AuthContextType = {
     user,
     isLoading,
     login,
     register,
-    logout
+    logout,
+    updateUser // Добавляем функцию в значение контекста
   };
 
   console.log('RootLayout render - user:', user, 'isLoading:', isLoading);

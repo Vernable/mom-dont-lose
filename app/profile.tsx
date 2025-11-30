@@ -28,8 +28,7 @@ export default function ProfileScreen() {
                   resizeMode="cover"
                 />
               </View>
-              <Text style={styles.userName}>Пользователь</Text>
-              <Text style={styles.userEmail}>{user.email}</Text>
+              <Text style={styles.userUsername}>@{user.username || 'username'}</Text>
             </View>
 
             {/* Информация профиля */}
@@ -37,9 +36,16 @@ export default function ProfileScreen() {
               <Text style={styles.sectionTitle}>Информация профиля</Text>
               
               <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Имя</Text>
+                <Text style={styles.infoValue}>
+                  {user.firstname || 'Не указано'}
+                </Text>
+              </View>
+              
+              <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Имя пользователя</Text>
                 <Text style={styles.infoValue}>
-                  {user.username || user.firstname || 'Не указано'}
+                  {user.username || 'Не указано'}
                 </Text>
               </View>
               
@@ -68,9 +74,11 @@ export default function ProfileScreen() {
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Действия</Text>
               
-              <TouchableOpacity style={styles.actionItem}>
-                <View style={styles.actionCheckbox} />
-                <Text style={styles.actionText}>Редактировать профиль</Text>
+              <TouchableOpacity 
+                style={styles.actionButton}
+                onPress={() => router.push('/editprofile')}
+              >
+                <Text style={styles.actionButtonText}>✏️ Редактировать профиль</Text>
               </TouchableOpacity>
               
               <TouchableOpacity style={styles.actionItem}>
@@ -144,16 +152,10 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  userName: {
+  userUsername: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#511515',
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  userEmail: {
-    fontSize: 16,
-    color: '#666',
     textAlign: 'center',
   },
   section: {
@@ -197,6 +199,24 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#e0e0e0',
     marginVertical: 16,
+  },
+  // Добавленные стили для actionButton
+  actionButton: {
+    backgroundColor: '#511515',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  actionButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   actionItem: {
     flexDirection: 'row',

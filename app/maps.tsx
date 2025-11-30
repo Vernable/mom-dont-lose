@@ -15,7 +15,7 @@ export default function MapsScreen() {
         <Text style={styles.mapPlaceholderText}>🗺️</Text>
         <Text style={styles.mapPlaceholderTitle}>Карта</Text>
         <Text style={styles.mapPlaceholderDescription}>
-          Здесь будет интерактивная карта с отмеченными местами
+          Здесь будет переход на приложение карт 
         </Text>
       </View>
 

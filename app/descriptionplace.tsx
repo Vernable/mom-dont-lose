@@ -175,7 +175,6 @@ export default function DescriptionPlace() {
           <TouchableOpacity style={styles.backButton} onPress={handleBack}>
             <Text style={styles.backButtonText}>←</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Загрузка...</Text>
           <View style={styles.favoriteButton} />
         </View>
         <View style={styles.loadingContainer}>
@@ -193,7 +192,6 @@ export default function DescriptionPlace() {
           <TouchableOpacity style={styles.backButton} onPress={handleBack}>
             <Text style={styles.backButtonText}>←</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Ошибка</Text>
           <View style={styles.favoriteButton} />
         </View>
         <View style={styles.loadingContainer}>
@@ -210,7 +208,6 @@ export default function DescriptionPlace() {
         <TouchableOpacity style={styles.backButton} onPress={handleBack}>
           <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Место</Text>
         <TouchableOpacity style={styles.favoriteButton} onPress={toggleFavoriteModal}>
           <Text style={styles.favoriteButtonText}>
             {currentFavorite ? '❤️' : '🤍'}
@@ -422,11 +419,6 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 24,
     fontWeight: 'bold',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: 'white',
   },
   favoriteButton: {
     padding: 8,
