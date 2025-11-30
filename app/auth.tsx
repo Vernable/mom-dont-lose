@@ -94,7 +94,7 @@ export default function AuthScreen() {
         
         <TextInput
           style={styles.input}
-          placeholder="Пароль (минимум 8 символов)"
+          placeholder="Пароль"
           value={password}
           onChangeText={setPassword}
           secureTextEntry

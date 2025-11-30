@@ -14,7 +14,7 @@ export default function WelcomeScreen() {
         />
       </View>
       <Text style={styles.title}>Мама не теряй</Text>
-      
+      <Text style={styles.subtitle}>Откройте для себя лучшие места города</Text>
       
       <TouchableOpacity 
         style={styles.button}
