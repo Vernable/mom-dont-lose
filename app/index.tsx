@@ -1,180 +1,126 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   StyleSheet,
   TouchableOpacity,
   TextInput,
-  Image,
   FlatList,
-  Dimensions
+  Dimensions,
+  ActivityIndicator,
+  Image
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import NavigationMenu from './components/NavigationMenu';
+import PocketBase from 'pocketbase';
 
 const { width: screenWidth } = Dimensions.get('window');
-//index.tsx
-// Мок-данные для категорий и мест
-const mockData = [
-  {
-    id: '1',
-    name: 'Культурный и познавательный досуг',
-    count: '6 мест',
-    places: [
-      {
-        id: '1',
-        name: 'Башкирский государственный театр оперы и балета',
-        description: 'Национальный театр Башкортостана',
-        address: '450077, Россия, г. Уфа, ул. Ленина, 5/1',
-        category: 'Театр',
-        rating: 4.8,
-        photos: ['photo1.jpg', 'photo2.jpg', 'photo3.jpg']
-      },
-      {
-        id: '2', 
-        name: 'Башкирский государственный художественный музей',
-        description: 'Коллекция башкирского и русского искусства',
-        address: '450076, Россия, г. Уфа, ул. Гоголя, 27',
-        category: 'Музей',
-        rating: 4.6,
-        photos: ['photo1.jpg', 'photo2.jpg']
-      },
-      {
-        id: '3',
-        name: 'Уфимский планетарий',
-        description: 'Астрономические шоу и образовательные программы',
-        address: '450077, Россия, г. Уфа, проспект Октября, 79/1',
-        category: 'Планетарий',
-        rating: 4.7,
-        photos: ['photo1.jpg']
-      }
-    ]
-  },
-  {
-    id: '2',
-    name: 'Активный отдых и спорт',
-    count: '6 мест', 
-    places: [
-      {
-        id: '4',
-        name: 'Спортивно-оздоровительный комплекс «Юность»',
-        description: 'Ледовая арена и спортивные залы',
-        address: 'Уфа, ул. Набережная реки Белой, 122',
-        category: 'Спорткомплекс',
-        rating: 4.7,
-        photos: ['photo1.jpg', 'photo2.jpg']
-      },
-      {
-        id: '5',
-        name: 'Горнолыжный комплекс «Олимпик-парк»',
-        description: 'Горнолыжные трассы и сноуборд-парк',
-        address: 'Уфа, пос. Нагаево, ул. Горнолыжная, 1',
-        category: 'Горнолыжный курорт',
-        rating: 4.9,
-        photos: ['photo1.jpg', 'photo2.jpg', 'photo3.jpg']
-      }
-    ]
-  },
-  {
-    id: '3',
-    name: 'Парки и отдых на природе',
-    count: '8 мест',
-    places: [
-      {
-        id: '6',
-        name: 'Парк культуры и отдыха им. М. Гафури',
-        description: 'Центральный парк города Уфы',
-        address: '450008, Россия, г. Уфа, ул. Заки Валиди, 37',
-        category: 'Парк',
-        rating: 4.5,
-        photos: ['photo1.jpg']
-      },
-      {
-        id: '7',
-        name: 'Ботанический сад Уфы',
-        description: 'Экзотические растения и ландшафтный дизайн',
-        address: '450077, Россия, г. Уфа, ул. Менделеева, 195',
-        category: 'Ботанический сад',
-        rating: 4.8,
-        photos: ['photo1.jpg', 'photo2.jpg']
-      }
-    ]
-  }
-];
 
-// Заглушки для изображений
-const getPlaceholderImage = (index: number) => {
-  const colors = ['#511515', '#4A1212', '#3A0D0D', '#2A0909'];
-  return colors[index % colors.length];
-};
+const pb = new PocketBase('http://192.168.1.10:8090');
 
 export default function HomeScreen() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
+  const [allPlaces, setAllPlaces] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const loadPlaces = async () => {
+    try {
+      const result = await pb.collection('places').getList(1, 50, {
+        expand: 'category'
+      });
+      console.log('Загружено мест:', result.items.length);
+      setAllPlaces(result.items);
+    } catch (error) {
+      console.error('Ошибка загрузки:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const filteredPlaces = useMemo(() => {
+    if (!searchQuery.trim()) return allPlaces;
+    const query = searchQuery.toLowerCase().trim();
+    return allPlaces.filter(place => 
+      place.name?.toLowerCase().includes(query) ||
+      place.address?.toLowerCase().includes(query) ||
+      place.expand?.category?.name?.toLowerCase().includes(query)
+    );
+  }, [allPlaces, searchQuery]);
+
+  const categories = useMemo(() => {
+    const categoriesMap = new Map<string, any[]>();
+    
+    filteredPlaces.forEach((place) => {
+      const categoryName = place.expand?.category?.name || 'Другие места';
+      if (!categoriesMap.has(categoryName)) {
+        categoriesMap.set(categoryName, []);
+      }
+      categoriesMap.get(categoryName)!.push(place);
+    });
+
+    return Array.from(categoriesMap.entries()).map(([name, places], index) => ({
+      id: `category-${index}`,
+      name: name,
+      count: `${places.length} мест`,
+      places: places
+    }));
+  }, [filteredPlaces]);
+
+  useEffect(() => {
+    loadPlaces();
+  }, []);
 
   const handlePlacePress = (placeId: string) => {
-  router.push({
-    pathname: '/descriptionplace',
-    params: { id: placeId }
-  });
-};
+    router.push({
+      pathname: '/descriptionplace',
+      params: { id: placeId }
+    });
+  };
+
+  const clearSearch = () => {
+    setSearchQuery('');
+  };
+
   const renderPlaceCard = ({ item, index }: { item: any; index: number }) => (
     <TouchableOpacity 
       style={styles.placeCard}
       onPress={() => handlePlacePress(item.id)}
     >
-      {/* Галерея фотографий */}
       <View style={styles.photosContainer}>
         {item.photos && item.photos.length > 0 ? (
-          <View style={[styles.photoPlaceholder, { backgroundColor: getPlaceholderImage(index) }]}>
-            <Text style={styles.photoPlaceholderText}>📸</Text>
-            {item.photos.length > 1 && (
-              <View style={styles.photosCountBadge}>
-                <Text style={styles.photosCountText}>+{item.photos.length - 1}</Text>
-              </View>
-            )}
-          </View>
+          <Image 
+            source={{ uri: pb.files.getUrl(item, item.photos[0]) }}
+            style={styles.photo}
+            resizeMode="cover"
+          />
         ) : (
-          <View style={[styles.photoPlaceholder, { backgroundColor: '#e0e0e0' }]}>
-            <Text style={styles.photoPlaceholderText}>🏞️</Text>
+          <View style={[styles.photoPlaceholder, { backgroundColor: '#511515' }]}>
+            <Text style={styles.photoPlaceholderText}>📸</Text>
           </View>
         )}
       </View>
 
-      {/* Информация о месте */}
       <View style={styles.placeInfo}>
-        <Text style={styles.placeName} numberOfLines={2}>
-          {item.name}
-        </Text>
-        
-        <Text style={styles.placeDescription} numberOfLines={1}>
-          {item.description}
-        </Text>
-        
+        <Text style={styles.placeName} numberOfLines={2}>{item.name}</Text>
+        <Text style={styles.placeDescription} numberOfLines={1}>{item.description}</Text>
         <View style={styles.ratingContainer}>
-          <Text style={styles.rating}>⭐ {item.rating}</Text>
+          <Text style={styles.rating}>⭐ {item.external_rating || 'Нет оценок'}</Text>
           <View style={styles.categoryBadge}>
-            <Text style={styles.categoryBadgeText}>{item.category}</Text>
+            <Text style={styles.categoryBadgeText}>{item.expand?.category?.name || 'Другие места'}</Text>
           </View>
         </View>
-
-        <Text style={styles.address} numberOfLines={2}>
-          {item.address}
-        </Text>
+        <Text style={styles.address} numberOfLines={2}>{item.address}</Text>
       </View>
     </TouchableOpacity>
   );
 
   const renderCategorySection = ({ item }: { item: any }) => (
     <View style={styles.categorySection}>
-      {/* Заголовок категории */}
       <View style={styles.categoryHeader}>
         <Text style={styles.categoryName}>{item.name}</Text>
         <Text style={styles.placesCount}>{item.count}</Text>
       </View>
-
-      {/* Горизонтальный скролл мест */}
       <FlatList
         data={item.places}
         renderItem={renderPlaceCard}
@@ -182,43 +128,60 @@ export default function HomeScreen() {
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.placesList}
-        snapToAlignment="start"
-        decelerationRate="fast"
       />
     </View>
   );
 
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <View style={styles.searchContainer}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Поиск по названию или адресу..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholderTextColor="#999"
+            />
+          </View>
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#511515" />
+          <Text style={styles.loadingText}>Загрузка мест...</Text>
+        </View>
+        <NavigationMenu />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      {/* Шапка с поиском */}
       <View style={styles.header}>
-        <Text style={styles.title}>Поиск мест...</Text>
         <View style={styles.searchContainer}>
           <TextInput
             style={styles.searchInput}
-            placeholder="Введите название места..."
+            placeholder="Поиск по названию или адресу..."
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholderTextColor="#999"
           />
-          <TouchableOpacity style={styles.searchButton}>
-            <Text style={styles.searchButtonText}>🔍</Text>
-          </TouchableOpacity>
+          {searchQuery ? (
+            <TouchableOpacity style={styles.clearButton} onPress={clearSearch}>
+              <Text style={styles.clearButtonText}>✕</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
       </View>
 
-      {/* Вертикальный скролл категорий */}
       <FlatList
-        data={mockData}
+        data={categories}
         renderItem={renderCategorySection}
         keyExtractor={(category) => category.id}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.categoriesList}
-        snapToAlignment="start"
-        decelerationRate="fast"
       />
 
-      {/* Навигационное меню */}
       <NavigationMenu />
     </View>
   );
@@ -235,23 +198,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 16,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: 'white',
-    marginBottom: 12,
-  },
   searchContainer: {
     flexDirection: 'row',
     backgroundColor: 'white',
     borderRadius: 12,
     paddingHorizontal: 12,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   searchInput: {
     flex: 1,
@@ -259,12 +211,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
   },
-  searchButton: {
+  clearButton: {
     padding: 8,
   },
-  searchButtonText: {
+  clearButtonText: {
     fontSize: 18,
-    color: '#511515',
+    color: '#666',
   },
   categoriesList: {
     paddingBottom: 80,
@@ -279,8 +231,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
   },
   categoryName: {
     fontSize: 18,
@@ -291,7 +241,6 @@ const styles = StyleSheet.create({
   placesCount: {
     fontSize: 14,
     color: '#666',
-    fontWeight: '500',
   },
   placesList: {
     paddingHorizontal: 16,
@@ -311,7 +260,10 @@ const styles = StyleSheet.create({
   },
   photosContainer: {
     height: 160,
-    position: 'relative',
+  },
+  photo: {
+    width: '100%',
+    height: '100%',
   },
   photoPlaceholder: {
     width: '100%',
@@ -323,20 +275,6 @@ const styles = StyleSheet.create({
     fontSize: 32,
     color: 'white',
   },
-  photosCountBadge: {
-    position: 'absolute',
-    bottom: 8,
-    right: 8,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  photosCountText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
   placeInfo: {
     padding: 12,
   },
@@ -345,13 +283,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#511515',
     marginBottom: 6,
-    lineHeight: 20,
   },
   placeDescription: {
     fontSize: 14,
     color: '#666',
     marginBottom: 8,
-    lineHeight: 18,
   },
   ratingContainer: {
     flexDirection: 'row',
@@ -378,6 +314,15 @@ const styles = StyleSheet.create({
   address: {
     fontSize: 12,
     color: '#999',
-    lineHeight: 16,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#666',
   },
 });
