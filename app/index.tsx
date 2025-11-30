@@ -18,6 +18,87 @@ const { width: screenWidth } = Dimensions.get('window');
 
 const pb = new PocketBase('http://192.168.1.10:8090');
 
+// Выносим карточку места в отдельный компонент
+const PlaceCard = ({ item, onPress }: { item: any; onPress: (id: string) => void }) => {
+  const [activePhotoIndex, setActivePhotoIndex] = useState(0);
+
+  const nextPhoto = (e: any) => {
+    e.stopPropagation();
+    if (item.photos && item.photos.length > 1) {
+      setActivePhotoIndex((prev) => 
+        prev === item.photos.length - 1 ? 0 : prev + 1
+      );
+    }
+  };
+
+  const prevPhoto = (e: any) => {
+    e.stopPropagation();
+    if (item.photos && item.photos.length > 1) {
+      setActivePhotoIndex((prev) => 
+        prev === 0 ? item.photos.length - 1 : prev - 1
+      );
+    }
+  };
+
+  return (
+    <TouchableOpacity 
+      style={styles.placeCard}
+      onPress={() => onPress(item.id)}
+    >
+      <View style={styles.photosContainer}>
+        {item.photos && item.photos.length > 0 ? (
+          <View style={styles.photoScrollContainer}>
+            <Image 
+              source={{ uri: pb.files.getURL(item, item.photos[activePhotoIndex]) }}
+              style={styles.photo}
+              resizeMode="cover"
+            />
+            
+            {item.photos.length > 1 && (
+              <>
+                <TouchableOpacity style={styles.photoNavButtonLeft} onPress={prevPhoto}>
+                  <Text style={styles.photoNavText}>‹</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.photoNavButtonRight} onPress={nextPhoto}>
+                  <Text style={styles.photoNavText}>›</Text>
+                </TouchableOpacity>
+                
+                <View style={styles.photoIndicators}>
+                  {item.photos.map((_: any, index: number) => (
+                    <View
+                      key={index}
+                      style={[
+                        styles.photoIndicator,
+                        index === activePhotoIndex && styles.photoIndicatorActive
+                      ]}
+                    />
+                  ))}
+                </View>
+              </>
+            )}
+          </View>
+        ) : (
+          <View style={[styles.photoPlaceholder, { backgroundColor: '#511515' }]}>
+            <Text style={styles.photoPlaceholderText}>📸</Text>
+          </View>
+        )}
+      </View>
+
+      <View style={styles.placeInfo}>
+        <Text style={styles.placeName} numberOfLines={2}>{item.name}</Text>
+        <Text style={styles.placeDescription} numberOfLines={1}>{item.description}</Text>
+        <View style={styles.ratingContainer}>
+          <Text style={styles.rating}>⭐ {item.external_rating || 'Нет оценок'}</Text>
+          <View style={styles.categoryBadge}>
+            <Text style={styles.categoryBadgeText}>{item.expand?.category?.name || 'Другие места'}</Text>
+          </View>
+        </View>
+        <Text style={styles.address} numberOfLines={2}>{item.address}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+};
+
 export default function HomeScreen() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
@@ -82,37 +163,8 @@ export default function HomeScreen() {
     setSearchQuery('');
   };
 
-  const renderPlaceCard = ({ item, index }: { item: any; index: number }) => (
-    <TouchableOpacity 
-      style={styles.placeCard}
-      onPress={() => handlePlacePress(item.id)}
-    >
-      <View style={styles.photosContainer}>
-        {item.photos && item.photos.length > 0 ? (
-          <Image 
-            source={{ uri: pb.files.getUrl(item, item.photos[0]) }}
-            style={styles.photo}
-            resizeMode="cover"
-          />
-        ) : (
-          <View style={[styles.photoPlaceholder, { backgroundColor: '#511515' }]}>
-            <Text style={styles.photoPlaceholderText}>📸</Text>
-          </View>
-        )}
-      </View>
-
-      <View style={styles.placeInfo}>
-        <Text style={styles.placeName} numberOfLines={2}>{item.name}</Text>
-        <Text style={styles.placeDescription} numberOfLines={1}>{item.description}</Text>
-        <View style={styles.ratingContainer}>
-          <Text style={styles.rating}>⭐ {item.external_rating || 'Нет оценок'}</Text>
-          <View style={styles.categoryBadge}>
-            <Text style={styles.categoryBadgeText}>{item.expand?.category?.name || 'Другие места'}</Text>
-          </View>
-        </View>
-        <Text style={styles.address} numberOfLines={2}>{item.address}</Text>
-      </View>
-    </TouchableOpacity>
+  const renderPlaceCard = ({ item }: { item: any }) => (
+    <PlaceCard item={item} onPress={handlePlacePress} />
   );
 
   const renderCategorySection = ({ item }: { item: any }) => (
@@ -260,10 +312,65 @@ const styles = StyleSheet.create({
   },
   photosContainer: {
     height: 160,
+    position: 'relative',
+  },
+  photoScrollContainer: {
+    width: '100%',
+    height: '100%',
+    position: 'relative',
   },
   photo: {
     width: '100%',
     height: '100%',
+  },
+  photoNavButtonLeft: {
+    position: 'absolute',
+    left: 5,
+    top: '50%',
+    transform: [{ translateY: -12 }],
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  photoNavButtonRight: {
+    position: 'absolute',
+    right: 5,
+    top: '50%',
+    transform: [{ translateY: -12 }],
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  photoNavText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  photoIndicators: {
+    position: 'absolute',
+    bottom: 8,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  photoIndicator: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.5)',
+    marginHorizontal: 2,
+  },
+  photoIndicatorActive: {
+    backgroundColor: 'white',
   },
   photoPlaceholder: {
     width: '100%',

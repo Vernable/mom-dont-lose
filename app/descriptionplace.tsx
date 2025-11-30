@@ -1,49 +1,36 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Dimensions } from 'react-native';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import NavigationMenu from './components/NavigationMenu';
-//desriptionplace.tsx
-const { width: screenWidth } = Dimensions.get('window');
+import PocketBase from 'pocketbase';
 
-// Мок данные для театра
-const placeData = {
-  id: '1',
-  name: 'Башкирский государственный театр оперы и балета',
-  category: 'Театр',
-  rating: 4.8,
-  address: '450077, Россия, г. Уфа, ул. Ленина, 5/1',
-  description: 'Башкирский государственный театр оперы и балета открылся 14 декабря 1938 оперой «Прекрасная мельничиха» Д. Памзиелло. Газиз Альмухаметов и Файзи Гаскаров — яркие представители первого поколения деятелей искусства Башкортостана направили студентов для обучения в национальных студиях при Ленинградском хореографическом училище и Московской консерватории. Первая балетная премьера театра — «Коппелия» Л. Делиба состоялась в 1940 году, а в 1944 году - первый башкирский балет «Журавлиная песнь».',
-  priceLevel: [
-    { type: 'Эконом', price: '300–800 ₽', description: 'балкон, дальние ряды' },
-    { type: 'Стандарт', price: '800–2 000 ₽', description: 'партер, бельэтаж, средние ряды' },
-    { type: 'Премиум', price: '2 000–4 000 ₽', description: 'первые ряды партера, центральные места' }
-  ],
-  workingHours: {
-    boxOffice: {
-      days: 'Пн-Пт: 10:00 - 19:00',
-      weekend: 'Сб-Вс: 10:00 - 18:00',
-      notes: 'Перерыв: 14:00 - 15:00, в дни спектаклей работает до начала представления'
-    },
-    performances: {
-      evening: 'Вечерние спектакли: 18:00 или 19:00',
-      matinee: 'Дневные спектакли: 12:00 или 13:00'
-    }
-  },
-  photos: [
-    require('../assets/images/botik.jpg'),
-    require('../assets/images/botik.jpg'),
-    require('../assets/images/botik.jpg')
-  ]
-};
+const { width: screenWidth } = Dimensions.get('window');
+const pb = new PocketBase('http://192.168.1.10:8090');
 
 export default function DescriptionPlace() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [place, setPlace] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // В реальном приложении здесь был бы fetch данных по ID из params
-  const place = placeData;
+  useEffect(() => {
+    loadPlace();
+  }, [params.id]);
+
+  const loadPlace = async () => {
+    try {
+      const record = await pb.collection('places').getOne(params.id as string, {
+        expand: 'category'
+      });
+      setPlace(record);
+    } catch (error) {
+      console.error('Ошибка загрузки места:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleBack = () => {
     router.back();
@@ -53,9 +40,60 @@ export default function DescriptionPlace() {
     setIsFavorite(!isFavorite);
   };
 
+  const nextPhoto = () => {
+    if (place?.photos) {
+      setActivePhotoIndex((prev) => 
+        prev === place.photos.length - 1 ? 0 : prev + 1
+      );
+    }
+  };
+
+  const prevPhoto = () => {
+    if (place?.photos) {
+      setActivePhotoIndex((prev) => 
+        prev === 0 ? place.photos.length - 1 : prev - 1
+      );
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={handleBack}>
+            <Text style={styles.backButtonText}>←</Text>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Загрузка...</Text>
+          <View style={styles.favoriteButton} />
+        </View>
+        <View style={styles.loadingContainer}>
+          <Text>Загрузка места...</Text>
+        </View>
+        <NavigationMenu />
+      </View>
+    );
+  }
+
+  if (!place) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={handleBack}>
+            <Text style={styles.backButtonText}>←</Text>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Ошибка</Text>
+          <View style={styles.favoriteButton} />
+        </View>
+        <View style={styles.loadingContainer}>
+          <Text>Место не найдено</Text>
+        </View>
+        <NavigationMenu />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      {/* Шапка */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={handleBack}>
           <Text style={styles.backButtonText}>←</Text>
@@ -67,34 +105,53 @@ export default function DescriptionPlace() {
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Фотографии */}
         <View style={styles.photosSection}>
-          <View style={styles.mainPhoto}>
-            <Text style={styles.photoPlaceholder}>🏛️</Text>
-          </View>
-          <View style={styles.photoIndicators}>
-            {[1, 2, 3].map((_, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.photoIndicator,
-                  index === activePhotoIndex && styles.photoIndicatorActive
-                ]}
+          {place.photos && place.photos.length > 0 ? (
+            <>
+              <TouchableOpacity style={styles.photoNavButtonLeft} onPress={prevPhoto}>
+                <Text style={styles.photoNavText}>‹</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.photoNavButtonRight} onPress={nextPhoto}>
+                <Text style={styles.photoNavText}>›</Text>
+              </TouchableOpacity>
+              <Image 
+                source={{ uri: pb.files.getURL(place, place.photos[activePhotoIndex]) }}
+                style={styles.mainPhoto}
+                resizeMode="cover"
               />
-            ))}
-          </View>
+              <View style={styles.photoIndicators}>
+                {place.photos.map((_: any, index: number) => (
+                  <View
+                    key={index}
+                    style={[
+                      styles.photoIndicator,
+                      index === activePhotoIndex && styles.photoIndicatorActive
+                    ]}
+                  />
+                ))}
+              </View>
+            </>
+          ) : (
+            <>
+              <View style={styles.mainPhoto}>
+                <Text style={styles.photoPlaceholder}>🏛️</Text>
+              </View>
+              <View style={styles.photoIndicators}>
+                <View style={[styles.photoIndicator, styles.photoIndicatorActive]} />
+              </View>
+            </>
+          )}
         </View>
 
-        {/* Основная информация */}
         <View style={styles.infoSection}>
           <Text style={styles.placeName}>{place.name}</Text>
           
           <View style={styles.ratingCategory}>
             <View style={styles.rating}>
-              <Text style={styles.ratingText}>⭐ {place.rating}</Text>
+              <Text style={styles.ratingText}>⭐ {place.external_rating || 'Нет оценок'}</Text>
             </View>
             <View style={styles.category}>
-              <Text style={styles.categoryText}>{place.category}</Text>
+              <Text style={styles.categoryText}>{place.expand?.category?.name || 'Другие места'}</Text>
             </View>
           </View>
 
@@ -103,49 +160,59 @@ export default function DescriptionPlace() {
           </View>
         </View>
 
-        {/* Описание */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Описание</Text>
-          <Text style={styles.descriptionText}>{place.description}</Text>
-        </View>
+        {place.description && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Описание</Text>
+            <Text style={styles.descriptionText}>{place.description}</Text>
+          </View>
+        )}
 
-        {/* Цены */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Ценовой уровень</Text>
-          {place.priceLevel.map((item, index) => (
-            <View key={index} style={styles.priceItem}>
-              <View style={styles.priceHeader}>
-                <Text style={styles.priceType}>{item.type}</Text>
-                <Text style={styles.priceValue}>{item.price}</Text>
-              </View>
-              <Text style={styles.priceDescription}>{item.description}</Text>
+        {place.phone && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Контактный телефон</Text>
+            <Text style={styles.contactText}>{place.phone}</Text>
+          </View>
+        )}
+
+        {place.website && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Веб-сайт</Text>
+            <Text style={styles.contactText}>{place.website}</Text>
+          </View>
+        )}
+
+        {place.price_level && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Ценовой уровень</Text>
+            <View style={[
+              styles.priceBadge,
+              place.price_level?.toLowerCase().includes('эконом') && styles.priceBadgeEconomy,
+              place.price_level?.toLowerCase().includes('средн') && styles.priceBadgeStandard,
+              (place.price_level?.toLowerCase().includes('премиум') || place.price_level?.toLowerCase().includes('высок')) && styles.priceBadgePremium
+            ]}>
+              <Text style={styles.priceBadgeText}>{place.price_level}</Text>
+              <Text style={styles.priceBadgeIcon}>
+                {place.price_level?.toLowerCase().includes('эконом') && '💰'}
+                {place.price_level?.toLowerCase().includes('средн') && '💵'}
+                {(place.price_level?.toLowerCase().includes('премиум') || place.price_level?.toLowerCase().includes('высок')) && '💎'}
+              </Text>
             </View>
-          ))}
-        </View>
-
-        {/* Часы работы */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Часы работы</Text>
-          
-          <View style={styles.hoursCategory}>
-            <Text style={styles.hoursCategoryTitle}>Касса</Text>
-            <Text style={styles.hoursText}>{place.workingHours.boxOffice.days}</Text>
-            <Text style={styles.hoursText}>{place.workingHours.boxOffice.weekend}</Text>
-            <Text style={styles.hoursNotes}>{place.workingHours.boxOffice.notes}</Text>
           </View>
+        )}
 
-          <View style={styles.hoursCategory}>
-            <Text style={styles.hoursCategoryTitle}>Спектакли</Text>
-            <Text style={styles.hoursText}>{place.workingHours.performances.evening}</Text>
-            <Text style={styles.hoursText}>{place.workingHours.performances.matinee}</Text>
+        {place.working_hours && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Часы работы</Text>
+            <Text style={styles.hoursText}>{place.working_hours}</Text>
           </View>
-        </View>
+        )}
 
-        {/* Кнопки действий */}
         <View style={styles.actionsSection}>
-          <TouchableOpacity style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>📞 Позвонить</Text>
-          </TouchableOpacity>
+          {place.phone && (
+            <TouchableOpacity style={styles.primaryButton}>
+              <Text style={styles.primaryButtonText}>📞 Позвонить</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity style={styles.secondaryButton}>
             <Text style={styles.secondaryButtonText}>🗺️ Открыть в картах</Text>
           </TouchableOpacity>
@@ -195,17 +262,49 @@ const styles = StyleSheet.create({
   },
   photosSection: {
     backgroundColor: 'white',
+    position: 'relative',
   },
   mainPhoto: {
     width: screenWidth,
     height: 250,
     backgroundColor: '#511515',
+  },
+  photoNavButtonLeft: {
+    position: 'absolute',
+    left: 10,
+    top: '50%',
+    transform: [{ translateY: -20 }],
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 1,
+  },
+  photoNavButtonRight: {
+    position: 'absolute',
+    right: 10,
+    top: '50%',
+    transform: [{ translateY: -20 }],
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  photoNavText: {
+    color: 'white',
+    fontSize: 24,
+    fontWeight: 'bold',
   },
   photoPlaceholder: {
     fontSize: 80,
     color: 'white',
+    textAlign: 'center',
+    lineHeight: 250,
   },
   photoIndicators: {
     flexDirection: 'row',
@@ -290,55 +389,43 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: '#333',
   },
-  priceItem: {
-    backgroundColor: '#f8f9fa',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 8,
-    borderLeftWidth: 3,
-    borderLeftColor: '#28a745',
-  },
-  priceHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  priceType: {
+  contactText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#511515',
-  },
-  priceValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#28a745',
-  },
-  priceDescription: {
-    fontSize: 14,
-    color: '#666',
-  },
-  hoursCategory: {
-    marginBottom: 16,
-  },
-  hoursCategoryTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#511515',
-    marginBottom: 8,
+    color: '#333',
+    lineHeight: 22,
   },
   hoursText: {
-    fontSize: 15,
+    fontSize: 16,
     color: '#333',
-    marginBottom: 2,
-    lineHeight: 20,
+    lineHeight: 22,
   },
-  hoursNotes: {
-    fontSize: 14,
-    color: '#666',
-    fontStyle: 'italic',
-    marginTop: 4,
-    lineHeight: 18,
+  priceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#8fd19e',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 25,
+    alignSelf: 'flex-start',
+  },
+  priceBadgeEconomy: {
+    backgroundColor: '#8fd19e',
+  },
+  priceBadgeStandard: {
+    backgroundColor: '#ffd54f',
+  },
+  priceBadgePremium: {
+    backgroundColor: '#ff8a65',
+  },
+  priceBadgeText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginRight: 8,
+  },
+  priceBadgeIcon: {
+    fontSize: 18,
   },
   actionsSection: {
     backgroundColor: 'white',
@@ -370,5 +457,10 @@ const styles = StyleSheet.create({
     color: '#511515',
     fontSize: 16,
     fontWeight: '600',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
