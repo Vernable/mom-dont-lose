@@ -101,10 +101,10 @@ export default function BotScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#EFE9E1', // Новый цвет фона
   },
   header: {
-    backgroundColor: '#511515',
+    backgroundColor: '#72383D', // Новый цвет хедера
     paddingTop: 50,
     paddingHorizontal: 16,
     paddingBottom: 16,
@@ -114,10 +114,12 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: 'white',
     marginBottom: 4,
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   subtitle: {
     fontSize: 14,
     color: 'rgba(255,255,255,0.8)',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   messagesList: {
     flex: 1,
@@ -130,53 +132,58 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 16,
     marginBottom: 12,
+    borderColor: '#AC9C8D'
   },
   userMessage: {
     alignSelf: 'flex-end',
-    backgroundColor: '#511515',
+    backgroundColor: '#72383D', // Новый цвет сообщений пользователя
   },
   botMessage: {
     alignSelf: 'flex-start',
-    backgroundColor: 'white',
+    backgroundColor: 'white', // Белый цвет сообщений бота
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: '#AC9C8D', // Новый цвет границы
   },
   messageText: {
     fontSize: 16,
     marginBottom: 4,
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   userMessageText: {
     color: 'white',
   },
   botMessageText: {
-    color: '#333',
+    color: '#000000', // Черный цвет текста бота
   },
   timestamp: {
     fontSize: 10,
     opacity: 0.6,
     color: 'white',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   inputContainer: {
     flexDirection: 'row',
     padding: 16,
-    backgroundColor: 'white',
+    backgroundColor: 'white', // Белый цвет фона ввода
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+    borderTopColor: '#AC9C8D', // Новый цвет границы
     alignItems: 'flex-end',
   },
   textInput: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#AC9C8D', // Новый цвет границы
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 10,
     marginRight: 12,
     maxHeight: 100,
     fontSize: 16,
+    color: '#000000', // Черный цвет текста
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   sendButton: {
-    backgroundColor: '#511515',
+    backgroundColor: '#72383D', // Новый цвет кнопки отправки
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -190,5 +197,6 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
 });

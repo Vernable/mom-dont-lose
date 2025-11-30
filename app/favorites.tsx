@@ -270,17 +270,17 @@ export default function FavoritesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#EFE9E1', // Новый цвет фона
   },
   header: {
-    backgroundColor: '#511515',
+    backgroundColor: '#72383D', // Новый цвет хедера
     paddingTop: 50,
     paddingHorizontal: 16,
     paddingBottom: 16,
   },
   tabsContainer: {
     flexDirection: 'row',
-    backgroundColor: 'white',
+    backgroundColor: '#AC9C8D', // Новый цвет табов
     paddingHorizontal: 16,
     paddingVertical: 8,
   },
@@ -293,23 +293,25 @@ const styles = StyleSheet.create({
     marginHorizontal: 2,
   },
   tabActive: {
-    backgroundColor: '#511515',
+    backgroundColor: '#72383D', // Новый цвет активного таба
   },
   tabText: {
     fontSize: 12,
-    color: '#666',
+    color: '#000000', // Черный цвет текста
     fontWeight: '500',
     textAlign: 'center',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   tabTextActive: {
-    color: 'white',
+    color: 'white', // Белый цвет активного текста
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   listContent: {
     padding: 16,
   },
   favoriteItem: {
     flexDirection: 'row',
-    backgroundColor: 'white',
+    backgroundColor: 'white', // Белый цвет карточек
     borderRadius: 12,
     padding: 12,
     marginBottom: 12,
@@ -323,7 +325,7 @@ const styles = StyleSheet.create({
   itemImage: {
     width: 60,
     height: 60,
-    backgroundColor: '#511515',
+    backgroundColor: '#72383D', // Новый цвет фона изображения
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
@@ -337,6 +339,7 @@ const styles = StyleSheet.create({
   itemImageText: {
     fontSize: 20,
     color: 'white',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   itemInfo: {
     flex: 1,
@@ -344,16 +347,18 @@ const styles = StyleSheet.create({
   itemName: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#511515',
+    color: '#72383D', // Новый цвет названия
     marginBottom: 4,
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   statusContainer: {
     marginBottom: 4,
   },
   statusText: {
     fontSize: 12,
-    color: '#666',
+    color: '#000000', // Черный цвет текста
     fontWeight: '500',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   itemDetails: {
     flexDirection: 'row',
@@ -362,18 +367,20 @@ const styles = StyleSheet.create({
   },
   itemCategory: {
     fontSize: 14,
-    color: '#666',
+    color: '#000000', // Черный цвет текста
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   itemRating: {
     fontSize: 14,
     color: '#ffa500',
     fontWeight: '600',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   removeButton: {
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: '#ff6b6b',
+    backgroundColor: '#72383D', // Новый цвет кнопки удаления
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 12,
@@ -382,6 +389,7 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 18,
     fontWeight: 'bold',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   emptyState: {
     flex: 1,
@@ -396,14 +404,16 @@ const styles = StyleSheet.create({
   emptyStateTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#511515',
+    color: '#72383D', // Новый цвет заголовка
     marginBottom: 8,
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   emptyStateText: {
     fontSize: 16,
-    color: '#666',
+    color: '#000000', // Черный цвет текста
     textAlign: 'center',
     lineHeight: 22,
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   loadingContainer: {
     flex: 1,
@@ -411,7 +421,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   authButton: {
-    backgroundColor: '#511515',
+    backgroundColor: '#72383D', // Новый цвет кнопки
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 8,
@@ -421,5 +431,6 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
 });

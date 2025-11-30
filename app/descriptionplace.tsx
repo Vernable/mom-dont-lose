@@ -401,13 +401,13 @@ export default function DescriptionPlace() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#EFE9E1', // Новый цвет фона
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#511515',
+    backgroundColor: '#72383D', // Новый цвет хедера
     paddingTop: 50,
     paddingHorizontal: 16,
     paddingBottom: 16,
@@ -419,9 +419,16 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 24,
     fontWeight: 'bold',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   favoriteButton: {
     padding: 8,
+    backgroundColor: '#AC9C8D', // Новый цвет кнопки избранного
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   favoriteButtonText: {
     fontSize: 20,
@@ -436,7 +443,7 @@ const styles = StyleSheet.create({
   mainPhoto: {
     width: screenWidth,
     height: 250,
-    backgroundColor: '#511515',
+    backgroundColor: '#72383D', // Новый цвет фона
   },
   photoNavButtonLeft: {
     position: 'absolute',
@@ -468,12 +475,14 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 24,
     fontWeight: 'bold',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   photoPlaceholder: {
     fontSize: 80,
     color: 'white',
     textAlign: 'center',
     lineHeight: 250,
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   photoIndicators: {
     flexDirection: 'row',
@@ -488,7 +497,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
   },
   photoIndicatorActive: {
-    backgroundColor: '#511515',
+    backgroundColor: '#72383D', // Новый цвет активного индикатора
   },
   infoSection: {
     backgroundColor: 'white',
@@ -499,9 +508,10 @@ const styles = StyleSheet.create({
   placeName: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#511515',
+    color: '#72383D', // Новый цвет названия
     marginBottom: 12,
     lineHeight: 28,
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   ratingCategory: {
     flexDirection: 'row',
@@ -518,6 +528,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#856404',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   category: {
     backgroundColor: '#d1ecf1',
@@ -529,6 +540,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#0c5460',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   favoriteStatus: {
     backgroundColor: '#e8f5e8',
@@ -541,18 +553,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#2e7d32',
     fontWeight: '500',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   address: {
     backgroundColor: '#f8f9fa',
     padding: 12,
     borderRadius: 8,
     borderLeftWidth: 3,
-    borderLeftColor: '#511515',
+    borderLeftColor: '#72383D', // Новый цвет границы
   },
   addressText: {
     fontSize: 14,
-    color: '#666',
+    color: '#000000', // Черный цвет текста
     lineHeight: 18,
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   section: {
     backgroundColor: 'white',
@@ -562,23 +576,27 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#511515',
+    color: '#72383D', // Новый цвет заголовка
     marginBottom: 12,
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   descriptionText: {
     fontSize: 16,
     lineHeight: 22,
-    color: '#333',
+    color: '#000000', // Черный цвет текста
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   contactText: {
     fontSize: 16,
-    color: '#333',
+    color: '#000000', // Черный цвет текста
     lineHeight: 22,
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   hoursText: {
     fontSize: 16,
-    color: '#333',
+    color: '#000000', // Черный цвет текста
     lineHeight: 22,
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   priceBadge: {
     flexDirection: 'row',
@@ -604,6 +622,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     marginRight: 8,
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   priceBadgeIcon: {
     fontSize: 18,
@@ -615,7 +634,7 @@ const styles = StyleSheet.create({
     marginBottom: 80,
   },
   primaryButton: {
-    backgroundColor: '#511515',
+    backgroundColor: '#72383D', // Новый цвет кнопки
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -625,6 +644,7 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 18,
     fontWeight: 'bold',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   secondaryButton: {
     backgroundColor: 'transparent',
@@ -632,12 +652,13 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#511515',
+    borderColor: '#72383D', // Новый цвет границы
   },
   secondaryButtonText: {
-    color: '#511515',
+    color: '#72383D', // Новый цвет текста
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   loadingContainer: {
     flex: 1,
@@ -660,9 +681,10 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#511515',
+    color: '#72383D', // Новый цвет заголовка
     textAlign: 'center',
     marginBottom: 20,
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   modalOption: {
     flexDirection: 'row',
@@ -678,8 +700,9 @@ const styles = StyleSheet.create({
   },
   modalOptionText: {
     fontSize: 16,
-    color: '#333',
+    color: '#000000', // Черный цвет текста
     fontWeight: '500',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   removeOption: {
     padding: 16,
@@ -692,6 +715,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#d32f2f',
     fontWeight: '500',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   cancelButton: {
     padding: 16,
@@ -702,7 +726,8 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     fontSize: 16,
-    color: '#666',
+    color: '#000000', // Черный цвет текста
     fontWeight: '500',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
 });

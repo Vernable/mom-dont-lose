@@ -85,6 +85,7 @@ export default function EditProfileScreen() {
               value={formData.firstname}
               onChangeText={(text) => setFormData(prev => ({ ...prev, firstname: text }))}
               placeholder="Введите ваше имя"
+              placeholderTextColor="#666"
             />
           </View>
 
@@ -96,6 +97,7 @@ export default function EditProfileScreen() {
               onChangeText={(text) => setFormData(prev => ({ ...prev, username: text }))}
               placeholder="Введите имя пользователя"
               autoCapitalize="none"
+              placeholderTextColor="#666"
             />
           </View>
 
@@ -108,6 +110,7 @@ export default function EditProfileScreen() {
               placeholder="Введите ваш email"
               keyboardType="email-address"
               autoCapitalize="none"
+              placeholderTextColor="#666"
             />
           </View>
 
@@ -131,13 +134,13 @@ export default function EditProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#EFE9E1', // Новый цвет фона
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#511515',
+    backgroundColor: '#72383D', // Новый цвет хедера
     paddingTop: 50,
     paddingHorizontal: 16,
     paddingBottom: 16,
@@ -149,11 +152,13 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 24,
     fontWeight: 'bold',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: 'white',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   placeholder: {
     width: 40,
@@ -170,8 +175,9 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#511515',
+    color: '#72383D', // Новый цвет
     marginBottom: 8,
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   input: {
     backgroundColor: 'white',
@@ -180,9 +186,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     fontSize: 16,
+    color: '#000000', // Черный цвет текста
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   saveButton: {
-    backgroundColor: '#511515',
+    backgroundColor: '#72383D', // Новый цвет кнопки
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -195,5 +203,6 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 18,
     fontWeight: 'bold',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
 });

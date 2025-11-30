@@ -15,12 +15,10 @@ export default function ProfileScreen() {
     logout();
   };
 
-  // ИЗМЕНЕНИЕ: Заменяем Alert на навигацию к экрану просмотренных мест
   const handleViewedPlaces = () => {
     router.push('/viewedplaces');
   };
 
-  // Остальной код без изменений...
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     
@@ -66,12 +64,10 @@ export default function ProfileScreen() {
     try {
       setIsLoading(true);
 
-      // Удаляем аватар пользователя в PocketBase
       const updatedUser = await pb.collection('users').update(user.id, {
         'avatar': null
       });
 
-      // Обновляем данные в контексте аутентификации
       if (updateUser) {
         updateUser(updatedUser);
       }
@@ -101,7 +97,6 @@ export default function ProfileScreen() {
       },
     ];
 
-    // Добавляем опцию удаления только если аватар существует
     if (user?.avatar) {
       options.push({
         text: 'Удалить аватар',
@@ -128,7 +123,6 @@ export default function ProfileScreen() {
     try {
       setIsLoading(true);
 
-      // Создаем FormData для загрузки файла
       const formData = new FormData();
       formData.append('avatar', {
         uri,
@@ -136,10 +130,8 @@ export default function ProfileScreen() {
         name: 'avatar.jpg',
       } as any);
 
-      // Обновляем аватар пользователя в PocketBase
       const updatedUser = await pb.collection('users').update(user.id, formData);
 
-      // Обновляем данные в контексте аутентификации
       if (updateUser) {
         updateUser(updatedUser);
       }
@@ -235,7 +227,6 @@ export default function ProfileScreen() {
                 <Text style={styles.actionButtonText}>✏️ Редактировать профиль</Text>
               </TouchableOpacity>
               
-              {/* ИЗМЕНЕНИЕ: Теперь кнопка ведет на реальный экран */}
               <TouchableOpacity 
                 style={styles.actionButton}
                 onPress={handleViewedPlaces}
@@ -243,7 +234,6 @@ export default function ProfileScreen() {
                 <Text style={styles.actionButtonText}>👁️ Недавно просмотренные места</Text>
               </TouchableOpacity>
 
-              {/* Кнопка выхода в разделе Действия */}
               <TouchableOpacity 
                 style={[styles.actionButton, styles.logoutButton]}
                 onPress={handleLogout}
@@ -252,7 +242,6 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Дополнительный отступ снизу для навигационного меню */}
             <View style={styles.bottomSpacer} />
           </ScrollView>
         </View>
@@ -273,11 +262,10 @@ export default function ProfileScreen() {
   );
 }
 
-// Стили остаются без изменений...
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#f8f9fa', // Основной фон оставлен
   },
   profileContent: {
     flex: 1,
@@ -289,7 +277,7 @@ const styles = StyleSheet.create({
   },
   photoSection: {
     alignItems: 'center',
-    backgroundColor: 'white',
+    backgroundColor: '#EFE9E1', // Новый цвет карточки
     padding: 24,
     borderRadius: 12,
     marginBottom: 16,
@@ -306,7 +294,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: 16,
     borderWidth: 3,
-    borderColor: '#511515',
+    borderColor: '#72383D', // Новый цвет обводки аватарки
     position: 'relative',
   },
   profilePhoto: {
@@ -317,7 +305,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 5,
     right: 5,
-    backgroundColor: '#511515',
+    backgroundColor: '#AC9C8D', // Новый цвет кнопки смены аватарки
     width: 32,
     height: 32,
     borderRadius: 16,
@@ -328,6 +316,7 @@ const styles = StyleSheet.create({
   },
   cameraIcon: {
     fontSize: 16,
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   loadingOverlay: {
     position: 'absolute',
@@ -344,15 +333,17 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 12,
     fontWeight: 'bold',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   userUsername: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#511515',
+    color: '#72383D', // Новый цвет username
     textAlign: 'center',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   section: {
-    backgroundColor: 'white',
+    backgroundColor: '#EFE9E1', // Новый цвет карточек
     borderRadius: 12,
     padding: 20,
     marginBottom: 16,
@@ -365,8 +356,9 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#511515',
+    color: '#72383D', // Новый цвет заголовка
     marginBottom: 20,
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   infoRow: {
     flexDirection: 'row',
@@ -378,15 +370,17 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 16,
-    color: '#666',
+    color: '#000000', // Черный цвет текста
     flex: 1,
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   infoValue: {
     fontSize: 16,
-    color: '#333',
+    color: '#000000', // Черный цвет текста
     fontWeight: '500',
     flex: 1,
     textAlign: 'right',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   divider: {
     height: 1,
@@ -394,7 +388,7 @@ const styles = StyleSheet.create({
     marginVertical: 16,
   },
   actionButton: {
-    backgroundColor: '#511515',
+    backgroundColor: '#72383D', // Новый цвет кнопок
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -409,13 +403,15 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   logoutButton: {
-    backgroundColor: '#dc3545',
+    backgroundColor: '#72383D', // Новый цвет кнопки выхода
     marginTop: 8,
   },
   logoutButtonText: {
     color: 'white',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   bottomSpacer: {
     height: 80,
@@ -429,11 +425,12 @@ const styles = StyleSheet.create({
   },
   guestText: {
     fontSize: 18,
-    color: '#666',
+    color: '#000000', // Черный цвет текста
     marginBottom: 20,
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   authButton: {
-    backgroundColor: '#511515',
+    backgroundColor: '#72383D', // Новый цвет кнопки
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -444,5 +441,6 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
 });

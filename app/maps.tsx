@@ -36,10 +36,10 @@ export default function MapsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#EFE9E1', // Новый цвет фона
   },
   header: {
-    backgroundColor: '#511515',
+    backgroundColor: '#72383D', // Новый цвет хедера
     paddingTop: 50,
     paddingHorizontal: 16,
     paddingBottom: 16,
@@ -49,16 +49,18 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: 'white',
     marginBottom: 4,
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   subtitle: {
     fontSize: 14,
     color: 'rgba(255,255,255,0.8)',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   mapPlaceholder: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#e9ecef',
+    backgroundColor: '#AC9C8D', // Новый цвет плейсхолдера карты
     margin: 16,
     borderRadius: 12,
   },
@@ -69,23 +71,25 @@ const styles = StyleSheet.create({
   mapPlaceholderTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#511515',
+    color: '#72383D', // Новый цвет заголовка
     marginBottom: 8,
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   mapPlaceholderDescription: {
     fontSize: 16,
-    color: '#666',
+    color: '#000000', // Черный цвет текста
     textAlign: 'center',
     paddingHorizontal: 20,
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   controls: {
     padding: 16,
-    backgroundColor: 'white',
+    backgroundColor: 'white', // Белый цвет фона контролов
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
   },
   controlButton: {
-    backgroundColor: '#511515',
+    backgroundColor: '#72383D', // Новый цвет кнопок
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -95,5 +99,6 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
 });

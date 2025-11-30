@@ -79,6 +79,7 @@ export default function AuthScreen() {
             value={name}
             onChangeText={setName}
             editable={!isLoading}
+            placeholderTextColor="#666"
           />
         )}
         
@@ -90,6 +91,7 @@ export default function AuthScreen() {
           keyboardType="email-address"
           autoCapitalize="none"
           editable={!isLoading}
+          placeholderTextColor="#666"
         />
         
         <TextInput
@@ -99,6 +101,7 @@ export default function AuthScreen() {
           onChangeText={setPassword}
           secureTextEntry
           editable={!isLoading}
+          placeholderTextColor="#666"
         />
         
         <TouchableOpacity 
@@ -142,7 +145,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#EFE9E1', // Новый цвет фона
     padding: 20,
   },
   title: {
@@ -150,7 +153,8 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 40,
-    color: '#511515',
+    color: '#72383D', // Новый цвет
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   form: {
     width: '100%',
@@ -164,9 +168,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ddd',
     fontSize: 16,
+    color: '#000000', // Черный цвет текста
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   button: {
-    backgroundColor: '#511515',
+    backgroundColor: '#72383D', // Новый цвет кнопки
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -181,22 +187,25 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 18,
     fontWeight: 'bold',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   switchButton: {
     padding: 16,
     alignItems: 'center',
   },
   switchButtonText: {
-    color: '#511515',
+    color: '#72383D', // Новый цвет
     fontSize: 16,
     fontWeight: '500',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   backButton: {
     marginTop: 20,
     padding: 10,
   },
   backButtonText: {
-    color: '#511515',
+    color: '#72383D', // Новый цвет
     fontSize: 16,
+    fontFamily: 'Banshrift', // Новый шрифт
   },
 });

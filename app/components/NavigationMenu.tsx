@@ -20,7 +20,7 @@ export default function NavigationMenu() {
     {
       id: 1,
       title: 'Бот',
-      icon: require('../../assets/images/botik.jpg'),
+      icon: require('../../assets/images/bot.png'),
       route: '/bot'
     },
     {
@@ -101,11 +101,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    backgroundColor: '#d0b3b3',
+    backgroundColor: '#72383D', // Новый цвет фона
     paddingVertical: 10,
     paddingHorizontal: 5,
     borderTopWidth: 1,
-    borderTopColor: '#4e0404',
+    borderTopColor: '#72383D', // Новый цвет границы
     position: 'absolute',
     bottom: 0,
     left: 0,
@@ -130,13 +130,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 4,
-    backgroundColor: '#f8f8f8',
+    backgroundColor: '#EFE9E1', // Новый цвет фона иконки
     borderRadius: 8,
   },
   activeIconContainer: {
-    backgroundColor: '#481010',
+    backgroundColor: '#AC9C8D', // Новый цвет активной иконки
     borderWidth: 1,
-    borderColor: '#481010',
+    borderColor: '#AC9C8D',
   },
   icon: {
     width: '60%',
@@ -145,14 +145,13 @@ const styles = StyleSheet.create({
   },
   menuText: {
     fontSize: 12,
-    fontFamily: 'Bahnschrift SemiLight Condensed',
-    color: 'black',
+    fontFamily: 'Banshrift', // Новый шрифт
+    color: 'white', // Черный цвет текста
     fontWeight: '500',
     textAlign: 'center',
   },
   activeMenuText: {
-    color: '#4A1212',
+    color: '#72383D', // Новый цвет активного текста
     fontWeight: 'bold',
-    opacity: 0.6
   },
 });

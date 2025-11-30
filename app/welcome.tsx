@@ -31,7 +31,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#EFE9E1', // Новый цвет фона
     padding: 20,
   },
   imageContainer: {
@@ -55,16 +55,18 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 10,
-    color: '#511515',
+    color: '#72383D', // Новый цвет заголовка
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   subtitle: {
     fontSize: 16,
     textAlign: 'center',
     marginBottom: 40,
-    color: '#666',
+    color: '#000000', // Черный цвет
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   button: {
-    backgroundColor: '#511515',
+    backgroundColor: '#72383D', // Новый цвет кнопки
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -75,5 +77,6 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 18,
     fontWeight: 'bold',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
 });

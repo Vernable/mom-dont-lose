@@ -111,7 +111,7 @@ export default function ViewedPlacesScreen() {
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#511515" />
+          <ActivityIndicator size="large" color="#72383D" />
           <Text style={styles.loadingText}>Загрузка...</Text>
         </View>
       ) : viewedPlaces.length === 0 ? (
@@ -179,13 +179,13 @@ export default function ViewedPlacesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#EFE9E1', // Новый цвет фона
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#511515',
+    backgroundColor: '#72383D', // Новый цвет хедера
     paddingTop: 50,
     paddingHorizontal: 16,
     paddingBottom: 16,
@@ -197,11 +197,13 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 24,
     fontWeight: 'bold',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: 'white',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   placeholder: {
     width: 40,
@@ -217,7 +219,8 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: '#666',
+    color: '#000000', // Черный цвет
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   guestContent: {
     flex: 1,
@@ -227,14 +230,16 @@ const styles = StyleSheet.create({
   },
   guestText: {
     fontSize: 18,
-    color: '#666',
+    color: '#000000', // Черный цвет
     marginBottom: 8,
     textAlign: 'center',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   guestSubtext: {
     fontSize: 14,
-    color: '#999',
+    color: '#000000', // Черный цвет
     textAlign: 'center',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   emptyContainer: {
     flex: 1,
@@ -245,20 +250,22 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#511515',
+    color: '#72383D', // Новый цвет
     marginBottom: 8,
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   emptyText: {
     fontSize: 14,
-    color: '#666',
+    color: '#000000', // Черный цвет
     textAlign: 'center',
     lineHeight: 20,
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   placesList: {
     padding: 16,
   },
   placeCard: {
-    backgroundColor: 'white',
+    backgroundColor: '#EFE9E1', // Новый цвет карточки
     borderRadius: 12,
     marginBottom: 16,
     shadowColor: '#000',
@@ -278,13 +285,14 @@ const styles = StyleSheet.create({
   placeImagePlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#511515',
+    backgroundColor: '#72383D', // Новый цвет
     justifyContent: 'center',
     alignItems: 'center',
   },
   placeImagePlaceholderText: {
     fontSize: 32,
     color: 'white',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   placeInfo: {
     padding: 16,
@@ -292,14 +300,16 @@ const styles = StyleSheet.create({
   placeName: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#511515',
+    color: '#72383D', // Новый цвет
     marginBottom: 8,
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   placeDescription: {
     fontSize: 14,
-    color: '#666',
+    color: '#000000', // Черный цвет
     marginBottom: 12,
     lineHeight: 20,
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   placeMeta: {
     flexDirection: 'row',
@@ -309,20 +319,23 @@ const styles = StyleSheet.create({
   },
   placeCategory: {
     fontSize: 12,
-    color: '#511515',
-    backgroundColor: '#f0f0f0',
+    color: '#72383D', // Новый цвет текста
+    backgroundColor: '#AC9C8D', // Новый цвет фона кружочка
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   placeRating: {
     fontSize: 14,
     color: '#ffa500',
     fontWeight: '600',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   viewedDate: {
     fontSize: 12,
-    color: '#999',
+    color: '#000000', // Черный цвет
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   bottomSpacer: {
     height: 80,

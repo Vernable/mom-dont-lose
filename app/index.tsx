@@ -84,7 +84,7 @@ const PlaceCard = ({ item, onPress, isViewed }: { item: any; onPress: (id: strin
             )}
           </View>
         ) : (
-          <View style={[styles.photoPlaceholder, { backgroundColor: '#511515' }]}>
+          <View style={[styles.photoPlaceholder, { backgroundColor: '#72383D' }]}>
             <Text style={styles.photoPlaceholderText}>📸</Text>
             {/* Индикатор просмотренного места для placeholder */}
             {isViewed && (
@@ -272,7 +272,7 @@ export default function HomeScreen() {
           <View style={styles.headerTop} />
         </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#511515" />
+          <ActivityIndicator size="large" color="#72383D" />
           <Text style={styles.loadingText}>Загрузка мест...</Text>
         </View>
         <NavigationMenu />
@@ -308,7 +308,7 @@ export default function HomeScreen() {
             placeholder="Поиск по названию или адресу..."
             value={searchQuery}
             onChangeText={setSearchQuery}
-            placeholderTextColor="#999"
+            placeholderTextColor="#666"
           />
           {searchQuery ? (
             <TouchableOpacity style={styles.clearButton} onPress={clearSearch}>
@@ -339,10 +339,10 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#EFE9E1', // Новый цвет фона
   },
   header: {
-    backgroundColor: '#511515',
+    backgroundColor: '#EFE9E1', // Новый цвет фона
     paddingTop: 50,
     paddingHorizontal: 16,
     paddingBottom: 16,
@@ -352,7 +352,7 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     flexDirection: 'row',
-    backgroundColor: 'white',
+    backgroundColor: 'white', // Новый цвет поисковой строки
     borderRadius: 12,
     paddingHorizontal: 12,
     alignItems: 'center',
@@ -361,7 +361,8 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     fontSize: 16,
-    color: '#333',
+    color: '#000000', // Черный цвет текста
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   clearButton: {
     padding: 8,
@@ -369,6 +370,7 @@ const styles = StyleSheet.create({
   clearButtonText: {
     fontSize: 18,
     color: '#666',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   categoriesList: {
     paddingBottom: 80,
@@ -382,17 +384,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 16,
-    backgroundColor: 'white',
+    backgroundColor: '#72383D',
   },
   categoryName: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#511515',
+    color: 'white', // Новый цвет
     flex: 1,
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   placesCount: {
     fontSize: 14,
-    color: '#666',
+    color: 'white', // Черный цвет
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   placesList: {
     paddingHorizontal: 16,
@@ -428,7 +432,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 8,
     right: 8,
-    backgroundColor: 'rgba(81, 21, 21, 0.9)',
+    backgroundColor: 'rgba(114, 56, 61, 0.9)', // Новый цвет
     width: 24,
     height: 24,
     borderRadius: 12,
@@ -439,6 +443,7 @@ const styles = StyleSheet.create({
   viewedBadgeText: {
     fontSize: 12,
     color: 'white',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   photoNavButtonLeft: {
     position: 'absolute',
@@ -470,6 +475,7 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   photoIndicators: {
     position: 'absolute',
@@ -499,6 +505,7 @@ const styles = StyleSheet.create({
   photoPlaceholderText: {
     fontSize: 32,
     color: 'white',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   placeInfo: {
     padding: 12,
@@ -506,13 +513,15 @@ const styles = StyleSheet.create({
   placeName: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#511515',
+    color: '#72383D', // Новый цвет
     marginBottom: 6,
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   placeDescription: {
     fontSize: 14,
-    color: '#666',
+    color: '#000000', // Черный цвет
     marginBottom: 8,
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   ratingContainer: {
     flexDirection: 'row',
@@ -524,9 +533,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#ffa500',
     fontWeight: '600',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   categoryBadge: {
-    backgroundColor: '#511515',
+    backgroundColor: '#72383D', // Новый цвет
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
@@ -535,10 +545,12 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: 'white',
     fontWeight: '500',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   address: {
     fontSize: 12,
-    color: '#999',
+    color: '#000000', // Черный цвет
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   loadingContainer: {
     flex: 1,
@@ -548,7 +560,8 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: '#666',
+    color: '#000000', // Черный цвет
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   errorContainer: {
     flex: 1,
@@ -559,17 +572,19 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#511515',
+    color: '#72383D', // Новый цвет
     marginBottom: 8,
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   errorDescription: {
     fontSize: 14,
-    color: '#666',
+    color: '#000000', // Черный цвет
     textAlign: 'center',
     marginBottom: 20,
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   retryButton: {
-    backgroundColor: '#511515',
+    backgroundColor: '#72383D', // Новый цвет
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 8,
@@ -578,6 +593,7 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
   emptyContainer: {
     flex: 1,
@@ -587,7 +603,8 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: '#666',
+    color: '#000000', // Черный цвет
     textAlign: 'center',
+    fontFamily: 'Banshrift', // Новый шрифт
   },
 });
