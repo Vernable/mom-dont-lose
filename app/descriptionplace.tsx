@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import NavigationMenu from './components/NavigationMenu';
 import { pb } from './utilis/pb';
 import { useAuth } from './_layout';
+import { openInYandexMaps, openWithCoordinates } from './utilis/maps';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -332,9 +333,25 @@ export default function DescriptionPlace() {
               <Text style={styles.primaryButtonText}>📞 Позвонить</Text>
             </TouchableOpacity>
           )}
-          <TouchableOpacity style={styles.secondaryButton}>
-            <Text style={styles.secondaryButtonText}>🗺️ Открыть в картах</Text>
-          </TouchableOpacity>
+          <TouchableOpacity 
+  style={styles.secondaryButton}
+  onPress={() => {
+    if (place.coordinates && place.coordinates.lat && place.coordinates.lon) {
+      // Если есть координаты, открываем по ним
+      openWithCoordinates(
+        place.coordinates.lat,
+        place.coordinates.lon
+      );
+    } else if (place.address) {
+      // Если нет координат, но есть адрес
+      openInYandexMaps(place.address);
+    } else {
+      Alert.alert('Ошибка', 'Адрес не указан');
+    }
+  }}
+>
+  <Text style={styles.secondaryButtonText}>🗺️ Открыть в картах</Text>
+</TouchableOpacity>
         </View>
       </ScrollView>
 
