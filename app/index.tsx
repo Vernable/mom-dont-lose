@@ -4,7 +4,6 @@ import {
   ActivityIndicator,
   Dimensions,
   FlatList,
-  Image,
   StyleSheet,
   Text,
   TextInput,
@@ -13,103 +12,10 @@ import {
 } from 'react-native';
 import { useAuth } from './_layout';
 import NavigationMenu from './components/NavigationMenu';
+import { PlaceCard } from './components/PlaceCard';
 import { pb } from './utils/pb';
 
 const { width: screenWidth } = Dimensions.get('window');
-
-// Выносим карточку места в отдельный компонент
-const PlaceCard = ({ item, onPress, isViewed }: { item: any; onPress: (id: string) => void; isViewed: boolean }) => {
-  const [activePhotoIndex, setActivePhotoIndex] = useState(0);
-
-  const nextPhoto = (e: any) => {
-    e.stopPropagation();
-    if (item.photos && item.photos.length > 1) {
-      setActivePhotoIndex((prev) => 
-        prev === item.photos.length - 1 ? 0 : prev + 1
-      );
-    }
-  };
-
-  const prevPhoto = (e: any) => {
-    e.stopPropagation();
-    if (item.photos && item.photos.length > 1) {
-      setActivePhotoIndex((prev) => 
-        prev === 0 ? item.photos.length - 1 : prev - 1
-      );
-    }
-  };
-
-  return (
-    <TouchableOpacity 
-      style={styles.placeCard}
-      onPress={() => onPress(item.id)}
-    >
-      <View style={styles.photosContainer}>
-        {item.photos && item.photos.length > 0 ? (
-          <View style={styles.photoScrollContainer}>
-            <Image 
-              source={{ uri: pb.files.getURL(item, item.photos[activePhotoIndex]) }}
-              style={styles.photo}
-              resizeMode="cover"
-            />
-            
-            {/* Индикатор просмотренного места */}
-            {isViewed && (
-              <View style={styles.viewedBadge}>
-                <Text style={styles.viewedBadgeText}>👁️</Text>
-              </View>
-            )}
-            
-            {item.photos.length > 1 && (
-              <>
-                <TouchableOpacity style={styles.photoNavButtonLeft} onPress={prevPhoto}>
-                  <Text style={styles.photoNavText}>‹</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.photoNavButtonRight} onPress={nextPhoto}>
-                  <Text style={styles.photoNavText}>›</Text>
-                </TouchableOpacity>
-                
-                <View style={styles.photoIndicators}>
-                  {item.photos.map((_: any, index: number) => (
-                    <View
-                      key={index}
-                      style={[
-                        styles.photoIndicator,
-                        index === activePhotoIndex && styles.photoIndicatorActive
-                      ]}
-                    />
-                  ))}
-                </View>
-              </>
-            )}
-          </View>
-        ) : (
-          <View style={[styles.photoPlaceholder, { backgroundColor: '#72383D' }]}>
-            <Text style={styles.photoPlaceholderText}>📸</Text>
-            {/* Индикатор просмотренного места для placeholder */}
-            {isViewed && (
-              <View style={styles.viewedBadge}>
-                <Text style={styles.viewedBadgeText}>👁️</Text>
-              </View>
-            )}
-          </View>
-        )}
-      </View>
-
-      <View style={styles.placeInfo}>
-        <Text style={styles.placeName} numberOfLines={2}>{item.name}</Text>
-        <Text style={styles.placeDescription} numberOfLines={1}>{item.description}</Text>
-        <View style={styles.ratingContainer}>
-          <Text style={styles.rating}>⭐ {item.external_rating || 'Нет оценок'}</Text>
-          <View style={styles.categoryBadge}>
-            <Text style={styles.categoryBadgeText}>{item.expand?.category?.name || 'Другие места'}</Text>
-          </View>
-        </View>
-        <Text style={styles.address} numberOfLines={2}>{item.address}</Text>
-      </View>
-    </TouchableOpacity>
-  );
-};
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -119,13 +25,9 @@ export default function HomeScreen() {
   const [viewedPlaces, setViewedPlaces] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    console.log('Текущий статус авторизации на главной:', { 
-      isValid: !!user, 
-      user 
-    });
-    
     loadPlaces();
     if (user) {
       loadViewedPlaces();
@@ -138,18 +40,57 @@ export default function HomeScreen() {
       setIsLoading(true);
       setLoadError(null);
       
-      const result = await pb.collection('places').getList(1, 50, {
-        expand: 'category',
-        requestKey: 'home_places'
-      });
+      const result = await pb.collection('places').getList(1, 200);
       
-      console.log('Загружено мест:', result.items.length);
-      setAllPlaces(result.items);
+      console.log('✅ Загружено мест:', result.items.length);
+      
+      // Теперь загружаем категории отдельно для каждого места
+      const placesWithCategories = await Promise.all(
+        result.items.map(async (place) => {
+          if (place.category) {
+            try {
+              const category = await pb.collection('categories').getOne(place.category);
+              return {
+                ...place,
+                expand: { category }
+              };
+            } catch (error) {
+              console.log(`Не удалось загрузить категорию для места ${place.id}`);
+              return {
+                ...place,
+                expand: { category: null }
+              };
+            }
+          }
+          return place;
+        })
+      );
+      
+      setAllPlaces(placesWithCategories);
+      
     } catch (error: any) {
-      console.error('Ошибка загрузки мест:', error);
-      setLoadError(error.message || 'Не удалось загрузить данные');
+      console.error('❌ ОШИБКА ЗАГРУЗКИ МЕСТ:', error);
+      setLoadError(`Ошибка загрузки: ${error.message || 'Неизвестная ошибка'}`);
+      
+      // Пробуем самый простой запрос
+      try {
+        const simpleResult = await pb.collection('places').getList(1, 20);
+        setAllPlaces(simpleResult.items);
+        setLoadError(null);
+      } catch (simpleError) {
+        console.error('Простой запрос тоже не работает:', simpleError);
+      }
     } finally {
       setIsLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    loadPlaces();
+    if (user) {
+      loadViewedPlaces();
     }
   };
 
@@ -159,7 +100,6 @@ export default function HomeScreen() {
     try {
       const viewedRecords = await pb.collection('search_place').getFullList({
         filter: `user = "${user.id}"`,
-        expand: 'place'
       });
       
       const viewedIds = new Set(viewedRecords.map(record => record.place));
@@ -170,26 +110,21 @@ export default function HomeScreen() {
     }
   };
 
-  // Функция для отметки места как просмотренного
   const markPlaceAsViewed = async (placeId: string) => {
     if (!user) return;
 
     try {
-      // Проверяем, не было ли уже просмотрено это место
       const existingRecord = await pb.collection('search_place').getList(1, 1, {
         filter: `user = "${user.id}" && place = "${placeId}"`,
       });
 
       if (existingRecord.items.length === 0) {
-        // Создаем новую запись о просмотренном месте
         await pb.collection('search_place').create({
           user: user.id,
           place: placeId,
         });
         
-        // Обновляем локальное состояние
         setViewedPlaces(prev => new Set([...prev, placeId]));
-        console.log('Место отмечено как просмотренное');
       }
     } catch (error) {
       console.error('Ошибка при отметке места:', error);
@@ -200,16 +135,26 @@ export default function HomeScreen() {
     if (!searchQuery.trim()) return allPlaces;
     const query = searchQuery.toLowerCase().trim();
     return allPlaces.filter(place => 
-      place.name?.toLowerCase().includes(query) ||
-      place.address?.toLowerCase().includes(query) ||
-      place.expand?.category?.name?.toLowerCase().includes(query)
+      (place.name && place.name.toLowerCase().includes(query)) ||
+      (place.address && place.address.toLowerCase().includes(query)) ||
+      (place.expand?.category?.name && place.expand.category.name.toLowerCase().includes(query))
     );
   }, [allPlaces, searchQuery]);
 
+  // Сортируем по рейтингу
+  const sortedPlaces = useMemo(() => {
+    return [...filteredPlaces].sort((a, b) => {
+      const ratingA = a.external_rating ? parseFloat(a.external_rating) : 0;
+      const ratingB = b.external_rating ? parseFloat(b.external_rating) : 0;
+      return ratingB - ratingA;
+    });
+  }, [filteredPlaces]);
+
+  // ГРУППИРУЕМ ПО КАТЕГОРИЯМ
   const categories = useMemo(() => {
     const categoriesMap = new Map<string, any[]>();
     
-    filteredPlaces.forEach((place) => {
+    sortedPlaces.forEach((place) => {
       const categoryName = place.expand?.category?.name || 'Другие места';
       if (!categoriesMap.has(categoryName)) {
         categoriesMap.set(categoryName, []);
@@ -217,19 +162,19 @@ export default function HomeScreen() {
       categoriesMap.get(categoryName)!.push(place);
     });
 
-    return Array.from(categoriesMap.entries()).map(([name, places], index) => ({
-      id: `category-${index}`,
-      name: name,
-      count: `${places.length} мест`,
-      places: places
-    }));
-  }, [filteredPlaces]);
+    // Сортируем категории по количеству мест
+    return Array.from(categoriesMap.entries())
+      .map(([name, places], index) => ({
+        id: `category-${index}`,
+        name: name,
+        count: `${places.length} мест`,
+        places: places
+      }))
+      .sort((a, b) => b.places.length - a.places.length);
+  }, [sortedPlaces]);
 
   const handlePlacePress = (placeId: string) => {
-    // Отмечаем место как просмотренное
     markPlaceAsViewed(placeId);
-    
-    // Переходим на страницу описания
     router.push({
       pathname: '/descriptionplace',
       params: { id: placeId }
@@ -243,7 +188,7 @@ export default function HomeScreen() {
   const renderPlaceCard = ({ item }: { item: any }) => (
     <PlaceCard 
       item={item} 
-      onPress={handlePlacePress}
+      onPress={() => handlePlacePress(item.id)}
       isViewed={viewedPlaces.has(item.id)}
     />
   );
@@ -252,7 +197,15 @@ export default function HomeScreen() {
     <View style={styles.categorySection}>
       <View style={styles.categoryHeader}>
         <Text style={styles.categoryName}>{item.name}</Text>
-        <Text style={styles.placesCount}>{item.count}</Text>
+        <View style={styles.categoryHeaderRight}>
+          <Text style={styles.placesCount}>{item.count}</Text>
+          {/* Показываем лучший рейтинг в категории */}
+          {item.places[0]?.external_rating && parseFloat(item.places[0].external_rating) > 0 && (
+            <View style={styles.topRatingBadge}>
+              <Text style={styles.topRatingText}>★ {parseFloat(item.places[0].external_rating).toFixed(1)}</Text>
+            </View>
+          )}
+        </View>
       </View>
       <FlatList
         data={item.places}
@@ -269,7 +222,20 @@ export default function HomeScreen() {
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <View style={styles.headerTop} />
+          <View style={styles.searchContainer}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Поиск по названию или адресу..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholderTextColor="#666"
+            />
+            {searchQuery ? (
+              <TouchableOpacity style={styles.clearButton} onPress={clearSearch}>
+                <Text style={styles.clearButtonText}>✕</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
         </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#72383D" />
@@ -284,7 +250,20 @@ export default function HomeScreen() {
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <View style={styles.headerTop} />
+          <View style={styles.searchContainer}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Поиск по названию или адресу..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholderTextColor="#666"
+            />
+            {searchQuery ? (
+              <TouchableOpacity style={styles.clearButton} onPress={clearSearch}>
+                <Text style={styles.clearButtonText}>✕</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
         </View>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Ошибка загрузки</Text>
@@ -301,7 +280,6 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <View style={styles.headerTop} />
         <View style={styles.searchContainer}>
           <TextInput
             style={styles.searchInput}
@@ -327,8 +305,13 @@ export default function HomeScreen() {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>Места не найдены</Text>
+            <TouchableOpacity style={styles.refreshButton} onPress={handleRefresh}>
+              <Text style={styles.refreshButtonText}>Обновить</Text>
+            </TouchableOpacity>
           </View>
         }
+        refreshing={refreshing}
+        onRefresh={handleRefresh}
       />
 
       <NavigationMenu />
@@ -339,20 +322,17 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#EFE9E1', // Новый цвет фона
+    backgroundColor: '#EFE9E1',
   },
   header: {
-    backgroundColor: '#EFE9E1', // Новый цвет фона
+    backgroundColor: '#EFE9E1',
     paddingTop: 50,
     paddingHorizontal: 16,
     paddingBottom: 16,
   },
-  headerTop: {
-    marginBottom: 12,
-  },
   searchContainer: {
     flexDirection: 'row',
-    backgroundColor: 'white', // Новый цвет поисковой строки
+    backgroundColor: 'white',
     borderRadius: 12,
     paddingHorizontal: 12,
     alignItems: 'center',
@@ -361,8 +341,8 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     fontSize: 16,
-    color: '#000000', // Черный цвет текста
-    fontFamily: 'Banshrift', // Новый шрифт
+    color: '#000000',
+    fontFamily: 'Banshrift',
   },
   clearButton: {
     padding: 8,
@@ -370,7 +350,7 @@ const styles = StyleSheet.create({
   clearButtonText: {
     fontSize: 18,
     color: '#666',
-    fontFamily: 'Banshrift', // Новый шрифт
+    fontFamily: 'Banshrift',
   },
   categoriesList: {
     paddingBottom: 80,
@@ -389,179 +369,47 @@ const styles = StyleSheet.create({
   categoryName: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: 'white', // Новый цвет
+    color: 'white',
     flex: 1,
-    fontFamily: 'Banshrift', // Новый шрифт
+    fontFamily: 'Banshrift',
+  },
+  categoryHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   placesCount: {
     fontSize: 14,
-    color: 'white', // Черный цвет
-    fontFamily: 'Banshrift', // Новый шрифт
+    color: 'white',
+    fontFamily: 'Banshrift',
+  },
+  topRatingBadge: {
+    backgroundColor: '#ffa500',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  topRatingText: {
+    fontSize: 12,
+    color: 'white',
+    fontWeight: 'bold',
+    fontFamily: 'Banshrift',
   },
   placesList: {
     paddingHorizontal: 16,
     paddingTop: 12,
   },
-  placeCard: {
-    width: 280,
-    backgroundColor: 'white',
-    borderRadius: 12,
-    marginRight: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    overflow: 'hidden',
-  },
-  photosContainer: {
-    height: 160,
-    position: 'relative',
-  },
-  photoScrollContainer: {
-    width: '100%',
-    height: '100%',
-    position: 'relative',
-  },
-  photo: {
-    width: '100%',
-    height: '100%',
-  },
-  // Стили для индикатора просмотренного места
-  viewedBadge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: 'rgba(114, 56, 61, 0.9)', // Новый цвет
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 2,
-  },
-  viewedBadgeText: {
-    fontSize: 12,
-    color: 'white',
-    fontFamily: 'Banshrift', // Новый шрифт
-  },
-  photoNavButtonLeft: {
-    position: 'absolute',
-    left: 5,
-    top: '50%',
-    transform: [{ translateY: -12 }],
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1,
-  },
-  photoNavButtonRight: {
-    position: 'absolute',
-    right: 5,
-    top: '50%',
-    transform: [{ translateY: -12 }],
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1,
-  },
-  photoNavText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-    fontFamily: 'Banshrift', // Новый шрифт
-  },
-  photoIndicators: {
-    position: 'absolute',
-    bottom: 8,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
-  photoIndicator: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: 'rgba(255,255,255,0.5)',
-    marginHorizontal: 2,
-  },
-  photoIndicatorActive: {
-    backgroundColor: 'white',
-  },
-  photoPlaceholder: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
-  },
-  photoPlaceholderText: {
-    fontSize: 32,
-    color: 'white',
-    fontFamily: 'Banshrift', // Новый шрифт
-  },
-  placeInfo: {
-    padding: 12,
-  },
-  placeName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#72383D', // Новый цвет
-    marginBottom: 6,
-    fontFamily: 'Banshrift', // Новый шрифт
-  },
-  placeDescription: {
-    fontSize: 14,
-    color: '#000000', // Черный цвет
-    marginBottom: 8,
-    fontFamily: 'Banshrift', // Новый шрифт
-  },
-  ratingContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  rating: {
-    fontSize: 14,
-    color: '#ffa500',
-    fontWeight: '600',
-    fontFamily: 'Banshrift', // Новый шрифт
-  },
-  categoryBadge: {
-    backgroundColor: '#72383D', // Новый цвет
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  categoryBadgeText: {
-    fontSize: 10,
-    color: 'white',
-    fontWeight: '500',
-    fontFamily: 'Banshrift', // Новый шрифт
-  },
-  address: {
-    fontSize: 12,
-    color: '#000000', // Черный цвет
-    fontFamily: 'Banshrift', // Новый шрифт
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
   },
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: '#000000', // Черный цвет
-    fontFamily: 'Banshrift', // Новый шрифт
+    color: '#000000',
+    fontFamily: 'Banshrift',
   },
   errorContainer: {
     flex: 1,
@@ -572,19 +420,19 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#72383D', // Новый цвет
+    color: '#72383D',
     marginBottom: 8,
-    fontFamily: 'Banshrift', // Новый шрифт
+    fontFamily: 'Banshrift',
   },
   errorDescription: {
     fontSize: 14,
-    color: '#000000', // Черный цвет
+    color: '#000000',
     textAlign: 'center',
     marginBottom: 20,
-    fontFamily: 'Banshrift', // Новый шрифт
+    fontFamily: 'Banshrift',
   },
   retryButton: {
-    backgroundColor: '#72383D', // Новый цвет
+    backgroundColor: '#72383D',
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 8,
@@ -593,7 +441,19 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
-    fontFamily: 'Banshrift', // Новый шрифт
+    fontFamily: 'Banshrift',
+  },
+  refreshButton: {
+    backgroundColor: '#72383D',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  refreshButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontFamily: 'Banshrift',
   },
   emptyContainer: {
     flex: 1,
@@ -603,8 +463,8 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: '#000000', // Черный цвет
+    color: '#000000',
     textAlign: 'center',
-    fontFamily: 'Banshrift', // Новый шрифт
+    fontFamily: 'Banshrift',
   },
 });
