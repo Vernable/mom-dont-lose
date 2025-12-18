@@ -1,7 +1,6 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
-import { useEffect, createContext, useContext, useState } from 'react';
-import { Platform } from 'react-native';
-import { pb } from './utilis/pb'; // Импортируем общий экземпляр
+import { createContext, useContext, useEffect, useState } from 'react';
+import { pb } from './utils/pb'; // Импортируем общий экземпляр
 
 // Типы для авторизации
 type User = {

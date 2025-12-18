@@ -1,17 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
+  ActivityIndicator,
+  Alert,
+  ScrollView,
   StyleSheet,
+  Text,
   TextInput,
   TouchableOpacity,
-  ScrollView,
-  Alert,
-  ActivityIndicator
+  View
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { pb } from './utilis/pb';
 import { useAuth } from './_layout';
+import { pb } from './utils/pb';
 
 export default function EditProfileScreen() {
   const router = useRouter();

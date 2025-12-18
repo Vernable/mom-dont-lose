@@ -1,10 +1,10 @@
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Alert } from 'react-native';
+import { useState } from 'react';
+import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useAuth } from './_layout';
 import NavigationMenu from './components/NavigationMenu';
-import * as ImagePicker from 'expo-image-picker';
-import { useState } from 'react';
-import { pb } from './utilis/pb';
+import { pb } from './utils/pb';
 
 export default function ProfileScreen() {
   const router = useRouter();

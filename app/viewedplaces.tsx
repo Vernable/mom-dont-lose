@@ -1,18 +1,18 @@
-import { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  Image,
-  ActivityIndicator,
-  Alert
-} from 'react-native';
 import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    Image,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
+} from 'react-native';
 import { useAuth } from './_layout';
-import { pb } from './utilis/pb';
 import NavigationMenu from './components/NavigationMenu';
+import { pb } from './utils/pb';
 
 export default function ViewedPlacesScreen() {
   const router = useRouter();

@@ -1,17 +1,17 @@
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
-  Dimensions, 
-  Alert, 
+import { useState } from 'react';
+import {
+  Alert,
+  Dimensions,
   Linking,
+  Modal,
+  StyleSheet,
+  Text,
   TextInput,
-  Modal
+  TouchableOpacity,
+  View
 } from 'react-native';
 import NavigationMenu from './components/NavigationMenu';
-import { openInYandexMaps } from './utilis/maps';
-import { useState } from 'react';
+import { openInYandexMaps } from './utils/maps';
 
 const { width: screenWidth } = Dimensions.get('window');
 
