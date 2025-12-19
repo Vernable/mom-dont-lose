@@ -20,7 +20,7 @@ export default function NavigationMenu() {
     {
       id: 1,
       title: 'Бот',
-      icon: require('../../assets/images/bot.png'),
+      icon: require('../../assets/images/botik.jpg'),
       route: '/bot'
     },
     {
