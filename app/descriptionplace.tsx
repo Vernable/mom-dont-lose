@@ -660,38 +660,6 @@ export default function DescriptionPlace() {
           </View>
         )}
 
-        {/* Дополнительная информация */}
-        <View style={styles.metadataSection}>
-          <Text style={styles.sectionTitle}>Информация</Text>
-          <View style={styles.metadataRow}>
-            <Text style={styles.metadataLabel}>Обновлено:</Text>
-            <Text style={styles.metadataValue}>
-              {new Date(place.updated).toLocaleDateString('ru-RU')}
-            </Text>
-          </View>
-          {place.yandex_map_id && (
-            <View style={styles.metadataRow}>
-              <Text style={styles.metadataLabel}>ID Яндекс:</Text>
-              <Text style={styles.metadataValue}>{place.yandex_map_id}</Text>
-            </View>
-          )}
-        </View>
-
-        {/* Тестовая секция - удалить после отладки */}
-        <View style={styles.debugSection}>
-          <Text style={styles.debugTitle}>Отладка рейтинга</Text>
-          <Text style={styles.debugText}>ID Яндекс: {place?.yandex_map_id || 'нет'}</Text>
-          <Text style={styles.debugText}>Загружается: {isLoadingRating ? 'Да' : 'Нет'}</Text>
-          <Text style={styles.debugText}>Рейтинг: {yandexRating ? `${yandexRating.rating}⭐ (${yandexRating.reviews} отзывов)` : 'нет'}</Text>
-          <Text style={styles.debugText}>Ошибка: {ratingError || 'нет'}</Text>
-          <TouchableOpacity 
-            style={styles.debugButton}
-            onPress={() => place?.yandex_map_id && loadYandexRating(place.yandex_map_id)}
-          >
-            <Text style={styles.debugButtonText}>Обновить рейтинг</Text>
-          </TouchableOpacity>
-        </View>
-
         {/* Отступ для навигационного меню */}
         <View style={styles.bottomSpacer} />
       </ScrollView>
@@ -1125,63 +1093,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     textAlign: 'center',
-    fontFamily: 'Banshrift',
-  },
-  metadataSection: {
-    backgroundColor: 'white',
-    padding: 16,
-    marginTop: 8,
-    borderRadius: 8,
-    marginHorizontal: 8,
-  },
-  metadataRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  metadataLabel: {
-    fontSize: 14,
-    color: '#666',
-    fontFamily: 'Banshrift',
-  },
-  metadataValue: {
-    fontSize: 14,
-    color: '#000000',
-    fontFamily: 'Banshrift',
-  },
-  debugSection: {
-    backgroundColor: '#f0f0f0',
-    padding: 16,
-    margin: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ccc',
-  },
-  debugTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
-    fontFamily: 'Banshrift',
-  },
-  debugText: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
-    fontFamily: 'Banshrift',
-  },
-  debugButton: {
-    backgroundColor: '#72383D',
-    padding: 10,
-    borderRadius: 6,
-    marginTop: 8,
-    alignItems: 'center',
-  },
-  debugButtonText: {
-    color: 'white',
-    fontSize: 14,
     fontFamily: 'Banshrift',
   },
   bottomSpacer: {

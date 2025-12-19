@@ -46,14 +46,28 @@ export default function AuthScreen() {
         if (!success) {
           Alert.alert('Ошибка входа', 'Неверный email или пароль. Проверьте правильность введенных данных.');
         } else {
-          Alert.alert('Успешно', 'Вход выполнен!');
+          // УБИРАЕМ УВЕДОМЛЕНИЕ ОБ УСПЕШНОМ ВХОДЕ
+          // Просто возвращаемся назад
+          router.back();
         }
       } else {
         success = await register(email, password, name);
         if (!success) {
           Alert.alert('Ошибка регистрации', 'Не удалось создать аккаунт. Возможно, пользователь с таким email уже существует или данные не соответствуют требованиям.');
         } else {
-          Alert.alert('Успешно', 'Аккаунт создан!');
+          // УБИРАЕМ УВЕДОМЛЕНИЕ ОБ УСПЕШНОЙ РЕГИСТРАЦИИ
+          // Переключаем на форму входа
+          Alert.alert('Успешно', 'Аккаунт создан! Теперь вы можете войти.', [
+            {
+              text: 'OK',
+              onPress: () => {
+                setIsLogin(true);
+                setEmail('');
+                setPassword('');
+                setName('');
+              }
+            }
+          ]);
         }
       }
       
@@ -145,7 +159,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#EFE9E1', // Новый цвет фона
+    backgroundColor: '#EFE9E1',
     padding: 20,
   },
   title: {
@@ -153,8 +167,8 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 40,
-    color: '#72383D', // Новый цвет
-    fontFamily: 'Banshrift', // Новый шрифт
+    color: '#72383D',
+    fontFamily: 'Banshrift',
   },
   form: {
     width: '100%',
@@ -168,11 +182,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ddd',
     fontSize: 16,
-    color: '#000000', // Черный цвет текста
-    fontFamily: 'Banshrift', // Новый шрифт
+    color: '#000000',
+    fontFamily: 'Banshrift',
   },
   button: {
-    backgroundColor: '#72383D', // Новый цвет кнопки
+    backgroundColor: '#72383D',
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -187,25 +201,25 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 18,
     fontWeight: 'bold',
-    fontFamily: 'Banshrift', // Новый шрифт
+    fontFamily: 'Banshrift',
   },
   switchButton: {
     padding: 16,
     alignItems: 'center',
   },
   switchButtonText: {
-    color: '#72383D', // Новый цвет
+    color: '#72383D',
     fontSize: 16,
     fontWeight: '500',
-    fontFamily: 'Banshrift', // Новый шрифт
+    fontFamily: 'Banshrift',
   },
   backButton: {
     marginTop: 20,
     padding: 10,
   },
   backButtonText: {
-    color: '#72383D', // Новый цвет
+    color: '#72383D',
     fontSize: 16,
-    fontFamily: 'Banshrift', // Новый шрифт
+    fontFamily: 'Banshrift',
   },
 });
