@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
@@ -14,6 +14,7 @@ import { useAuth } from './_layout';
 import NavigationMenu from './components/NavigationMenu';
 import { PlaceCard } from './components/PlaceCard';
 import { pb } from './utils/pb';
+import { fetchYandexRating } from './utils/yandexService';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -26,6 +27,76 @@ export default function HomeScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [ratings, setRatings] = useState<Record<string, { rating: number, reviews: number }>>({});
+
+  // Функция загрузки рейтинга из Яндекса
+  const loadYandexRating = useCallback(async (yandexMapId: string, placeId: string) => {
+    if (!yandexMapId) {
+      console.log(`⚠️ Нет yandex_map_id для места ${placeId}`);
+      return null;
+    }
+    
+    console.log(`🎯 Загружаем рейтинг для ${placeId}: ${yandexMapId}`);
+    
+    try {
+      const ratingData = await fetchYandexRating(yandexMapId);
+      console.log(`📊 Результат рейтинга для ${placeId}:`, ratingData);
+      
+      if (ratingData) {
+        // Сохраняем рейтинг в состоянии
+        setRatings(prev => ({
+          ...prev,
+          [placeId]: ratingData
+        }));
+        
+        // Обновляем в PocketBase (опционально)
+        try {
+          await pb.collection('places').update(placeId, {
+            external_rating: ratingData.rating.toFixed(1)
+          });
+          console.log(`💾 Рейтинг сохранен в БД для ${placeId}`);
+        } catch (updateError) {
+          console.log(`⚠️ Не удалось сохранить в БД для ${placeId}:`, updateError);
+        }
+        
+        return ratingData;
+      } else {
+        console.log(`❌ Рейтинг не найден для ${placeId}`);
+        return null;
+      }
+    } catch (error: any) {
+      console.error(`🔥 Ошибка загрузки рейтинга для ${placeId}:`, error);
+      return null;
+    }
+  }, []);
+
+  // Загрузка рейтингов для всех мест с yandex_map_id
+  const loadAllRatings = useCallback(async (places: any[]) => {
+    const ratingPromises = places
+      .filter(place => place.yandex_map_id)
+      .map(async (place) => {
+        // Если уже есть external_rating в БД, используем его
+        if (place.external_rating) {
+          try {
+            const rating = parseFloat(place.external_rating);
+            if (!isNaN(rating)) {
+              setRatings(prev => ({
+                ...prev,
+                [place.id]: { rating, reviews: 0 }
+              }));
+              return;
+            }
+          } catch (e) {
+            console.log(`Ошибка парсинга external_rating для ${place.id}`);
+          }
+        }
+        
+        // Иначе загружаем из Яндекса
+        return loadYandexRating(place.yandex_map_id, place.id);
+      });
+    
+    await Promise.all(ratingPromises);
+  }, [loadYandexRating]);
 
   useEffect(() => {
     loadPlaces();
@@ -44,7 +115,7 @@ export default function HomeScreen() {
       
       console.log('✅ Загружено мест:', result.items.length);
       
-      // Теперь загружаем категории отдельно для каждого места
+      // Загружаем категории отдельно для каждого места
       const placesWithCategories = await Promise.all(
         result.items.map(async (place) => {
           if (place.category) {
@@ -68,6 +139,9 @@ export default function HomeScreen() {
       
       setAllPlaces(placesWithCategories);
       
+      // Загружаем рейтинги для всех мест
+      await loadAllRatings(placesWithCategories);
+      
     } catch (error: any) {
       console.error('❌ ОШИБКА ЗАГРУЗКИ МЕСТ:', error);
       setLoadError(`Ошибка загрузки: ${error.message || 'Неизвестная ошибка'}`);
@@ -76,6 +150,7 @@ export default function HomeScreen() {
       try {
         const simpleResult = await pb.collection('places').getList(1, 20);
         setAllPlaces(simpleResult.items);
+        await loadAllRatings(simpleResult.items);
         setLoadError(null);
       } catch (simpleError) {
         console.error('Простой запрос тоже не работает:', simpleError);
@@ -88,6 +163,7 @@ export default function HomeScreen() {
 
   const handleRefresh = () => {
     setRefreshing(true);
+    setRatings({}); // Сбрасываем рейтинги
     loadPlaces();
     if (user) {
       loadViewedPlaces();
@@ -141,14 +217,17 @@ export default function HomeScreen() {
     );
   }, [allPlaces, searchQuery]);
 
-  // Сортируем по рейтингу
+  // Сортируем по рейтингу (используем ratings или external_rating)
   const sortedPlaces = useMemo(() => {
     return [...filteredPlaces].sort((a, b) => {
-      const ratingA = a.external_rating ? parseFloat(a.external_rating) : 0;
-      const ratingB = b.external_rating ? parseFloat(b.external_rating) : 0;
+      // Получаем рейтинг из состояния или из БД
+      const ratingA = ratings[a.id]?.rating || 
+                     (a.external_rating ? parseFloat(a.external_rating) : 0);
+      const ratingB = ratings[b.id]?.rating || 
+                     (b.external_rating ? parseFloat(b.external_rating) : 0);
       return ratingB - ratingA;
     });
-  }, [filteredPlaces]);
+  }, [filteredPlaces, ratings]);
 
   // ГРУППИРУЕМ ПО КАТЕГОРИЯМ
   const categories = useMemo(() => {
@@ -185,38 +264,59 @@ export default function HomeScreen() {
     setSearchQuery('');
   };
 
-  const renderPlaceCard = ({ item }: { item: any }) => (
-    <PlaceCard 
-      item={item} 
-      onPress={() => handlePlacePress(item.id)}
-      isViewed={viewedPlaces.has(item.id)}
-    />
-  );
-
-  const renderCategorySection = ({ item }: { item: any }) => (
-    <View style={styles.categorySection}>
-      <View style={styles.categoryHeader}>
-        <Text style={styles.categoryName}>{item.name}</Text>
-        <View style={styles.categoryHeaderRight}>
-          <Text style={styles.placesCount}>{item.count}</Text>
-          {/* Показываем лучший рейтинг в категории */}
-          {item.places[0]?.external_rating && parseFloat(item.places[0].external_rating) > 0 && (
-            <View style={styles.topRatingBadge}>
-              <Text style={styles.topRatingText}>★ {parseFloat(item.places[0].external_rating).toFixed(1)}</Text>
-            </View>
-          )}
-        </View>
-      </View>
-      <FlatList
-        data={item.places}
-        renderItem={renderPlaceCard}
-        keyExtractor={(place) => place.id}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.placesList}
+  const renderPlaceCard = ({ item }: { item: any }) => {
+    // Получаем рейтинг для этой карточки
+    const placeRating = ratings[item.id];
+    const ratingValue = placeRating?.rating || 
+                       (item.external_rating ? parseFloat(item.external_rating) : null);
+    
+    return (
+      <PlaceCard 
+        item={item} 
+        onPress={() => handlePlacePress(item.id)}
+        isViewed={viewedPlaces.has(item.id)}
+        ratingValue={ratingValue}
+        yandexMapId={item.yandex_map_id}
       />
-    </View>
-  );
+    );
+  };
+
+  const renderCategorySection = ({ item }: { item: any }) => {
+    // Находим лучший рейтинг в категории
+    let topRating = 0;
+    item.places.forEach((place: any) => {
+      const rating = ratings[place.id]?.rating || 
+                    (place.external_rating ? parseFloat(place.external_rating) : 0);
+      if (rating > topRating) {
+        topRating = rating;
+      }
+    });
+
+    return (
+      <View style={styles.categorySection}>
+        <View style={styles.categoryHeader}>
+          <Text style={styles.categoryName}>{item.name}</Text>
+          <View style={styles.categoryHeaderRight}>
+            <Text style={styles.placesCount}>{item.count}</Text>
+            {/* Показываем лучший рейтинг в категории */}
+            {topRating > 0 && (
+              <View style={styles.topRatingBadge}>
+                <Text style={styles.topRatingText}>★ {topRating.toFixed(1)}</Text>
+              </View>
+            )}
+          </View>
+        </View>
+        <FlatList
+          data={item.places}
+          renderItem={renderPlaceCard}
+          keyExtractor={(place) => place.id}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.placesList}
+        />
+      </View>
+    );
+  };
 
   if (isLoading) {
     return (
@@ -239,7 +339,7 @@ export default function HomeScreen() {
         </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#72383D" />
-          <Text style={styles.loadingText}>Загрузка мест...</Text>
+          <Text style={styles.loadingText}>Загрузка мест и рейтингов...</Text>
         </View>
         <NavigationMenu />
       </View>

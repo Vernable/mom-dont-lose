@@ -12,9 +12,11 @@ interface PlaceCardProps {
   item: any;
   onPress: (id: string) => void;
   isViewed: boolean;
+  ratingValue: number | null;  // ← ДОБАВЬ ЭТО
+  yandexMapId?: string;        // ← ДОБАВЬ ЭТО
 }
 
-export const PlaceCard = ({ item, onPress, isViewed }: PlaceCardProps) => {
+export const PlaceCard = ({ item, onPress, isViewed, ratingValue, yandexMapId }: PlaceCardProps) => {
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
 
   const nextPhoto = (e: any) => {
@@ -35,51 +37,16 @@ export const PlaceCard = ({ item, onPress, isViewed }: PlaceCardProps) => {
     }
   };
 
-  // ЛОГИКА ОСНОВАНА НА ВАШЕМ DESCRIPTION PLACE:
-  // 1. Если есть external_rating - показываем его (он уже получен из Яндекса и сохранен)
-  // 2. Если нет external_rating, но есть yandex_map_id - можно показать что рейтинг еще не загружен
-  // 3. Если нет ни того ни другого - не показываем рейтинг
-
-  const hasRating = () => {
-    // Проверяем есть ли external_rating в данных
-    return item.external_rating !== undefined && 
-           item.external_rating !== null && 
-           item.external_rating !== '';
-  };
-
-  const getRatingValue = () => {
-    if (!hasRating()) return null;
-    
-    try {
-      const rating = item.external_rating;
-      
-      if (typeof rating === 'string') {
-        const num = parseFloat(rating);
-        return isNaN(num) ? null : num;
-      }
-      
-      if (typeof rating === 'number') {
-        return rating;
-      }
-      
-      return null;
-    } catch {
-      return null;
-    }
-  };
-
   const formatRating = () => {
-    const rating = getRatingValue();
-    if (rating === null) return '';
-    return `${rating.toFixed(1)}★`;
+    if (ratingValue === null || ratingValue === undefined) return '';
+    return `${ratingValue.toFixed(1)}★`;
   };
 
-  // Для отладки - посмотрим что в данных
+  // Для отладки
   console.log('PlaceCard:', {
     name: item.name,
-    hasYandexId: !!item.yandex_map_id,
-    hasExternalRating: hasRating(),
-    ratingValue: getRatingValue(),
+    yandexMapId,
+    ratingValue,
     externalRating: item.external_rating
   });
 
@@ -104,20 +71,20 @@ export const PlaceCard = ({ item, onPress, isViewed }: PlaceCardProps) => {
               </View>
             )}
             
-            {/* Бейдж рейтинга поверх фото - ПОКАЗЫВАЕМ ЕСЛИ ЕСТЬ external_rating */}
-            {hasRating() && (
+            {/* Бейдж рейтинга - ПОКАЗЫВАЕМ ЕСЛИ ЕСТЬ ratingValue */}
+            {ratingValue !== null && ratingValue !== undefined && ratingValue > 0 && (
               <View style={[
                 styles.ratingBadge,
-                getRatingValue() === 0 && styles.ratingBadgeZero
+                ratingValue === 0 && styles.ratingBadgeZero
               ]}>
                 <Text style={styles.ratingBadgeText}>{formatRating()}</Text>
               </View>
             )}
             
             {/* Если есть yandex_map_id, но нет рейтинга - можно показать другой значок */}
-            {!hasRating() && item.yandex_map_id && (
-              <View style={styles.ratingBadge}>
-                <Text style={styles.ratingBadgeText}>?★</Text>
+            {yandexMapId && (ratingValue === null || ratingValue === undefined || ratingValue === 0) && (
+              <View style={styles.loadingRatingBadge}>
+                <Text style={styles.loadingRatingBadgeText}>★ ?</Text>
               </View>
             )}
             
@@ -154,18 +121,18 @@ export const PlaceCard = ({ item, onPress, isViewed }: PlaceCardProps) => {
               </View>
             )}
             {/* Бейдж рейтинга для placeholder */}
-            {hasRating() && (
+            {ratingValue !== null && ratingValue !== undefined && ratingValue > 0 && (
               <View style={[
                 styles.ratingBadge,
-                getRatingValue() === 0 && styles.ratingBadgeZero
+                ratingValue === 0 && styles.ratingBadgeZero
               ]}>
                 <Text style={styles.ratingBadgeText}>{formatRating()}</Text>
               </View>
             )}
             {/* Если есть yandex_map_id, но нет рейтинга */}
-            {!hasRating() && item.yandex_map_id && (
-              <View style={styles.ratingBadge}>
-                <Text style={styles.ratingBadgeText}>?★</Text>
+            {yandexMapId && (ratingValue === null || ratingValue === undefined || ratingValue === 0) && (
+              <View style={styles.loadingRatingBadge}>
+                <Text style={styles.loadingRatingBadgeText}>★ ?</Text>
               </View>
             )}
           </View>
@@ -244,6 +211,22 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(128, 128, 128, 0.9)',
   },
   ratingBadgeText: {
+    fontSize: 12,
+    color: 'white',
+    fontWeight: 'bold',
+    fontFamily: 'Banshrift',
+  },
+  loadingRatingBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    backgroundColor: 'rgba(100, 100, 100, 0.8)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    zIndex: 2,
+  },
+  loadingRatingBadgeText: {
     fontSize: 12,
     color: 'white',
     fontWeight: 'bold',
