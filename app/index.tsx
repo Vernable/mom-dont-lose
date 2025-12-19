@@ -328,7 +328,7 @@ export default function HomeScreen() {
               placeholder="Поиск по названию или адресу..."
               value={searchQuery}
               onChangeText={setSearchQuery}
-              placeholderTextColor="#666"
+              placeholderTextColor="#EFE9E1" // Светлый placeholder
             />
             {searchQuery ? (
               <TouchableOpacity style={styles.clearButton} onPress={clearSearch}>
@@ -356,7 +356,7 @@ export default function HomeScreen() {
               placeholder="Поиск по названию или адресу..."
               value={searchQuery}
               onChangeText={setSearchQuery}
-              placeholderTextColor="#666"
+              placeholderTextColor="#EFE9E1" // ИЗМЕНИТЬ НА СВЕТЛЫЙ
             />
             {searchQuery ? (
               <TouchableOpacity style={styles.clearButton} onPress={clearSearch}>
@@ -386,7 +386,7 @@ export default function HomeScreen() {
             placeholder="Поиск по названию или адресу..."
             value={searchQuery}
             onChangeText={setSearchQuery}
-            placeholderTextColor="#666"
+            placeholderTextColor="#EFE9E1" // ИЗМЕНИТЬ НА СВЕТЛЫЙ
           />
           {searchQuery ? (
             <TouchableOpacity style={styles.clearButton} onPress={clearSearch}>
@@ -432,16 +432,19 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     flexDirection: 'row',
-    backgroundColor: 'white',
-    borderRadius: 12,
-    paddingHorizontal: 12,
+    backgroundColor: '#AC9C8D',
+    borderRadius: 24,
+    paddingHorizontal: 18,
     alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#72383D',
+    height: 48,
   },
   searchInput: {
     flex: 1,
     paddingVertical: 12,
     fontSize: 16,
-    color: '#000000',
+    color: '#EFE9E1', // Светлый текст
     fontFamily: 'Banshrift',
   },
   clearButton: {
@@ -449,7 +452,7 @@ const styles = StyleSheet.create({
   },
   clearButtonText: {
     fontSize: 18,
-    color: '#666',
+    color: '#EFE9E1', // Светлый текст для кнопки очистки
     fontFamily: 'Banshrift',
   },
   categoriesList: {

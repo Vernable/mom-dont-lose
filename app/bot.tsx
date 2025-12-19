@@ -681,7 +681,7 @@ export default function BotScreen() {
           value={inputText}
           onChangeText={setInputText}
           placeholder="Введите сообщение..."
-          placeholderTextColor="#999"
+          placeholderTextColor="#EFE9E1"
           multiline
           maxLength={500}
           editable={!isLoading}
@@ -757,7 +757,7 @@ const styles = StyleSheet.create({
     bottom: 80,
     left: 0,
     right: 0,
-    backgroundColor: '#AC9C8D', // Одинаковый фон с кнопками
+    backgroundColor: '#EFE9E1', // ← Светлый фон
     borderTopWidth: 1,
     borderTopColor: '#72383D',
     paddingBottom: 10,
@@ -768,13 +768,13 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   inputContainer: {
-    backgroundColor: '#AC9C8D', // Одинаковый фон с кнопками
+    backgroundColor: '#EFE9E1', // ← Светлый фон
   },
   suggestionsContainer: {
     paddingHorizontal: 12,
     paddingTop: 12,
     paddingBottom: 8,
-    backgroundColor: '#AC9C8D', // Одинаковый фон с кнопками
+    backgroundColor: '#EFE9E1', // ← Светлый фон
   },
   suggestionsContent: {
     paddingRight: 12,
@@ -795,9 +795,9 @@ const styles = StyleSheet.create({
     marginRight: 12,
     maxHeight: 120,
     fontSize: 16,
-    color: '#EFE9E1', // Светлый текст для читаемости
+    color: '#EFE9E1', // Светлый текст
     fontFamily: 'Banshrift',
-    backgroundColor: '#AC9C8D', // Одинаковый фон с кнопками
+    backgroundColor: '#AC9C8D', // Только поле ввода темное
     minHeight: 48,
   },
   sendButton: {
@@ -813,28 +813,28 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 4,
     borderWidth: 1.5,
-    borderColor: '#72383D', // Такая же бордовая граница
+    borderColor: '#72383D',
   },
   sendButtonDisabled: {
     backgroundColor: '#8A7A6B',
-    borderColor: '#72383D', // Такая же бордовая граница
+    borderColor: '#72383D',
     shadowOpacity: 0,
     elevation: 0,
   },
   sendButtonText: {
-    color: '#EFE9E1', // Светлый текст
+    color: '#EFE9E1',
     fontSize: 20,
     fontWeight: 'bold',
     fontFamily: 'Banshrift',
   },
   suggestionButton: {
-    backgroundColor: '#AC9C8D', // Одинаковый фон с полем ввода
+    backgroundColor: '#AC9C8D', // Кнопки темные
     paddingHorizontal: 18,
     paddingVertical: 10,
     borderRadius: 20,
     marginRight: 10,
     borderWidth: 1.5,
-    borderColor: '#72383D', // Такая же бордовая граница
+    borderColor: '#72383D',
     shadowColor: '#72383D',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -843,7 +843,7 @@ const styles = StyleSheet.create({
   },
   suggestionText: {
     fontSize: 14,
-    color: '#EFE9E1', // Светлый текст
+    color: '#EFE9E1', // Светлый текст на темных кнопках
     fontFamily: 'Banshrift',
     fontWeight: '600',
   },
@@ -905,7 +905,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 22,
     borderBottomRightRadius: 22,
     borderWidth: 1.5,
-    borderColor: '#72383D', // Такая же бордовая граница
+    borderColor: '#72383D',
   },
   messageText: {
     fontSize: 16,
@@ -915,7 +915,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   userMessageText: {
-    color: '#EFE9E1', // Светлый текст
+    color: '#EFE9E1',
   },
   botMessageText: {
     color: '#72383D',
@@ -932,7 +932,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   userMessageTime: {
-    color: 'rgba(239,233,225,0.85)', // Полупрозрачный светлый
+    color: 'rgba(239,233,225,0.85)',
   },
   botMessageTime: {
     color: 'rgba(114,56,61,0.7)',
@@ -956,12 +956,12 @@ const styles = StyleSheet.create({
     elevation: 4,
     overflow: 'hidden',
     borderWidth: 1.5,
-    borderColor: '#72383D', // Такая же бордовая граница
+    borderColor: '#72383D',
   },
   placeImage: {
     width: '100%',
     height: 130,
-    backgroundColor: '#AC9C8D', // Одинаковый фон с кнопками
+    backgroundColor: '#AC9C8D',
   },
   placeImagePlaceholder: {
     justifyContent: 'center',
@@ -1003,7 +1003,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#72383D', // Такая же бордовая граница
+    borderColor: '#72383D',
   },
   ratingText: {
     fontSize: 12,
