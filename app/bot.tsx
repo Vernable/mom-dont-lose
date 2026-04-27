@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   FlatList,
   StyleSheet,
@@ -30,6 +30,10 @@ type Message = {
   timestamp: Date;
   places?: any[];
   lastSearchQuery?: string;
+  lastSearchType?: string;
+  lastSearchCategory?: string;
+  currentIndex?: number;
+  allPlacesCache?: any[];
 };
 
 const declOfNum = (n: number, titles: [string, string, string]): string => {
@@ -51,7 +55,6 @@ export default function BotScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const flatListRef = useRef<FlatList>(null);
-  const [lastSearchQuery, setLastSearchQuery] = useState('');
   
   const [favoritePlaces, setFavoritePlaces] = useState<Map<string, any>>(new Map());
   const [showFavoriteModal, setShowFavoriteModal] = useState(false);
@@ -63,7 +66,9 @@ export default function BotScreen() {
   }, []);
 
   useEffect(() => {
-    flatListRef.current?.scrollToEnd({ animated: true });
+    if (flatListRef.current) {
+      flatListRef.current.scrollToEnd({ animated: true });
+    }
   }, [messages]);
 
   const loadFavorites = async () => {
@@ -74,7 +79,7 @@ export default function BotScreen() {
         filter: `user = "${user.id}"`,
       });
       const favMap = new Map();
-      favorites.forEach(f => favMap.set(f.place, f));
+      favorites.forEach((f: any) => favMap.set(f.place, f));
       setFavoritePlaces(favMap);
     } catch (error) {
       console.log('Ошибка загрузки избранного:', error);
@@ -163,7 +168,7 @@ export default function BotScreen() {
       if (existing.items.length) {
         const conv = existing.items[0];
         setConversationId(conv.id);
-        if (conv.conversation_history?.length) {
+        if (conv.conversation_history && conv.conversation_history.length) {
           const saved = conv.conversation_history.map((msg: any, i: number) => ({
             id: `${conv.id}_${i}`,
             text: msg.content,
@@ -217,58 +222,12 @@ export default function BotScreen() {
       return '😊 Пожалуйста! Обращайтесь ещё.';
     }
     if (lower.includes('помощь')) {
-      return '📋 Что я умею:\n\n1. 🔍 Найти место по названию\n   → "Ипподром Акбузат" или "кукол"\n\n2. 🏷️ Найти места по типу\n   → "Рестораны", "Кафе", "Музеи", "Театры", "Пабы"\n\n3. 🏆 Показать популярное\n   → "Топ мест", "Популярные места"\n\n4. 🎲 Случайное место\n   → "Случайное место", "Не знаю куда пойти"\n\n5. 🗑️ Очистить историю\n   → Кнопка "Очистить" вверху экрана\n\n6. ❤️ Избранное\n   → Нажмите на сердечко на карточке места';
+      return '📋 Что я умею:\n\n1. 🔍 Найти место по названию\n2. 🏷️ Найти места по типу (рестораны, кафе, музеи, театры, пабы)\n3. 🏆 Показать популярные места\n4. 🎲 Случайное место\n5. 🗑️ Очистить историю\n6. ❤️ Избранное (нажмите на сердечко)';
     }
     return null;
   };
 
-  const searchPlaces = async (query: string) => {
-    try {
-      let cleanQuery = query
-        .replace(/найди|ищи|пожалуйста|покажи|где находится|где |найти /gi, '')
-        .trim();
-      if (cleanQuery.length === 0) cleanQuery = query;
-      
-      const words = cleanQuery.toLowerCase().split(' ').filter(w => w.length > 1);
-      
-      if (words.length === 0) return [];
-      
-      let filterParts: string[] = [];
-      const searchFields = ['name', 'category', 'description', 'address', 'place_type'];
-      
-      for (const word of words) {
-        for (const field of searchFields) {
-          filterParts.push(`${field} ~ "${word}"`);
-        }
-      }
-      
-      const filter = filterParts.join(' || ');
-      
-      let res = await pb.collection('places').getList(1, 30, {
-        filter: filter,
-        sort: '-external_rating',
-        expand: 'category',
-      });
-      
-      if (res.items.length === 0) {
-        const allPlaces = await pb.collection('places').getList(1, 100, { expand: 'category' });
-        const filteredItems = allPlaces.items.filter((place: any) => {
-          const searchStr = `${place.name} ${place.category || ''} ${place.description || ''} ${place.address || ''}`.toLowerCase();
-          return words.every(word => searchStr.includes(word));
-        });
-        res.items = filteredItems;
-      }
-      
-      return res.items.map((i: any) => ({ 
-        ...i, 
-        category: i.expand?.category?.name || i.category || 'Без категории' 
-      }));
-    } catch (error) {
-      return [];
-    }
-  };
-
-  const searchByType = async (type: string) => {
+  const searchByType = async (type: string): Promise<any[]> => {
     try {
       const variations = [
         type.toLowerCase(),
@@ -281,7 +240,7 @@ export default function BotScreen() {
       
       for (const variant of variations) {
         try {
-          const res = await pb.collection('places').getList(1, 30, {
+          const res = await pb.collection('places').getList(1, 50, {
             filter: `place_type ~ "${variant}"`,
             sort: '-external_rating',
             expand: 'category',
@@ -291,11 +250,11 @@ export default function BotScreen() {
       }
       
       const uniqueItems = allItems.filter((item, index, self) => 
-        index === self.findIndex((i) => i.id === item.id)
+        index === self.findIndex((i: any) => i.id === item.id)
       );
       
       if (uniqueItems.length === 0) {
-        const res = await pb.collection('places').getList(1, 30, {
+        const res = await pb.collection('places').getList(1, 50, {
           filter: `name ~ "${type}" || name ~ "${type.toLowerCase()}" || name ~ "${type.charAt(0).toUpperCase() + type.slice(1)}"`,
           sort: '-external_rating',
           expand: 'category',
@@ -306,24 +265,31 @@ export default function BotScreen() {
         }));
       }
       
-      return uniqueItems.map((i: any) => ({ 
+      const sorted = uniqueItems.sort((a, b) => {
+        const ratingA = a.external_rating ? parseFloat(a.external_rating) : 0;
+        const ratingB = b.external_rating ? parseFloat(b.external_rating) : 0;
+        return ratingB - ratingA;
+      });
+      
+      return sorted.map((i: any) => ({ 
         ...i, 
         category: i.expand?.category?.name || i.category || 'Без категории' 
       }));
     } catch (e) {
+      console.error('Ошибка поиска по типу:', e);
       return [];
     }
   };
 
-  const getPopular = async () => {
+  const getPopular = async (): Promise<any[]> => {
     try {
-      const res = await pb.collection('places').getList(1, 10, {
+      const res = await pb.collection('places').getList(1, 50, {
         sort: '-external_rating',
         filter: 'external_rating > 0',
         expand: 'category',
       });
       if (res.items.length === 0) {
-        const all = await pb.collection('places').getList(1, 10, { sort: '-created', expand: 'category' });
+        const all = await pb.collection('places').getList(1, 50, { sort: '-created', expand: 'category' });
         return all.items.map((i: any) => ({ ...i, category: i.expand?.category?.name || i.category }));
       }
       return res.items.map((i: any) => ({ ...i, category: i.expand?.category?.name || i.category }));
@@ -332,11 +298,31 @@ export default function BotScreen() {
     }
   };
 
-  const getRandomPlace = async () => {
+  const searchByName = async (query: string): Promise<any[]> => {
+    try {
+      const res = await pb.collection('places').getList(1, 50, {
+        filter: `name ~ "${query}"`,
+        sort: '-external_rating',
+        expand: 'category',
+      });
+      return res.items.map((i: any) => ({ ...i, category: i.expand?.category?.name || i.category }));
+    } catch (e) {
+      return [];
+    }
+  };
+
+  const getRandomPlace = async (count: number = 20): Promise<any[]> => {
     const all = await pb.collection('places').getList(1, 100, { expand: 'category' });
     if (!all.items.length) return [];
-    const rand = Math.floor(Math.random() * all.items.length);
-    return [{ ...all.items[rand], category: all.items[rand].expand?.category?.name || all.items[rand].category }];
+    const shuffled = [...all.items];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled.slice(0, count).map((i: any) => ({ 
+      ...i, 
+      category: i.expand?.category?.name || i.category || 'Без категории' 
+    }));
   };
 
   const send = async (text: string, retryQuery?: string) => {
@@ -370,44 +356,130 @@ export default function BotScreen() {
       return;
     }
 
-    let places: any[] = [];
+    let allPlaces: any[] = [];
+    let searchType = '';
+    let category = '';
     const lower = queryToSend.toLowerCase();
 
     if (lower === 'рестораны' || lower === 'ресторан') {
-      places = await searchByType('ресторан');
+      allPlaces = await searchByType('ресторан');
+      searchType = 'type';
+      category = 'ресторан';
     } else if (lower === 'кафе') {
-      places = await searchByType('кафе');
+      allPlaces = await searchByType('кафе');
+      searchType = 'type';
+      category = 'кафе';
     } else if (lower === 'музеи' || lower === 'музей') {
-      places = await searchByType('музей');
+      allPlaces = await searchByType('музей');
+      searchType = 'type';
+      category = 'музей';
     } else if (lower === 'парки' || lower === 'парк') {
-      places = await searchByType('парк');
+      allPlaces = await searchByType('парк');
+      searchType = 'type';
+      category = 'парк';
     } else if (lower === 'театры' || lower === 'театр') {
-      places = await searchByType('театр');
+      allPlaces = await searchByType('театр');
+      searchType = 'type';
+      category = 'театр';
     } else if (lower === 'пабы' || lower === 'паб' || lower === 'бар') {
-      places = await searchByType('паб');
-    } else if (lower.includes('популярн') || lower.includes('топ')) {
-      places = await getPopular();
+      allPlaces = await searchByType('паб');
+      searchType = 'type';
+      category = 'паб';
+    } else if (lower.includes('популярн') || lower.includes('топ') || lower.includes('лучш')) {
+      allPlaces = await getPopular();
+      searchType = 'popular';
     } else if (lower.includes('случайное') || lower.includes('не знаю')) {
-      places = await getRandomPlace();
+      allPlaces = await getRandomPlace(20);
+      searchType = 'random';
     } else {
-      places = await searchPlaces(queryToSend);
+      allPlaces = await searchByName(queryToSend);
+      if (allPlaces.length === 0) {
+        const typePlaces = await searchByType(queryToSend);
+        if (typePlaces.length > 0) {
+          allPlaces = typePlaces;
+          searchType = 'type';
+          category = queryToSend;
+        } else {
+          searchType = 'name';
+        }
+      } else {
+        searchType = 'name';
+      }
     }
 
-    setLastSearchQuery(queryToSend);
-    let responseText = '';
-    if (places.length === 0) {
-      responseText = `😔 Ничего не нашла по "${queryToSend}". Попробуйте поискать в Яндекс.Картах?`;
-    } else {
-      responseText = `🔍 Нашла ${places.length} ${declOfNum(places.length, ['место', 'места', 'мест'])}:`;
+    if (allPlaces.length === 0) {
+      const responseText = `😔 Ничего не нашла по "${queryToSend}". Попробуйте поискать в Яндекс.Картах?`;
+      const botMsg: Message = {
+        id: `b_${Date.now()}`,
+        text: responseText,
+        isUser: false,
+        timestamp: new Date(),
+        lastSearchQuery: queryToSend,
+      };
+      setMessages(prev => [...prev, botMsg]);
+      await saveMessage(botMsg);
+      setIsLoading(false);
+      return;
     }
+
+    const responseText = `🔍 Нашла ${allPlaces.length} ${declOfNum(allPlaces.length, ['место', 'места', 'мест'])}:`;
+    
+    const shownPlaces = allPlaces.slice(0, 5);
+    const remainingPlaces = allPlaces.slice(5);
 
     const botMsg: Message = {
       id: `b_${Date.now()}`,
       text: responseText,
       isUser: false,
       timestamp: new Date(),
-      places: places.length ? places : undefined,
+      places: shownPlaces,
       lastSearchQuery: queryToSend,
+      lastSearchType: searchType,
+      lastSearchCategory: category,
+      currentIndex: 5,
+      allPlacesCache: remainingPlaces,
+    };
+    setMessages(prev => [...prev, botMsg]);
+    await saveMessage(botMsg);
+    setIsLoading(false);
+  };
+
+  const loadMoreOptions = async (message: Message) => {
+    if (isLoading) return;
+    setIsLoading(true);
+
+    const remainingPlaces = message.allPlacesCache || [];
+    
+    if (remainingPlaces.length === 0) {
+      const botMsg: Message = {
+        id: `b_${Date.now()}`,
+        text: `😔 Больше мест по запросу "${message.lastSearchQuery}" не найдено. Попробуйте поискать в Яндекс.Картах?`,
+        isUser: false,
+        timestamp: new Date(),
+        lastSearchQuery: message.lastSearchQuery,
+      };
+      setMessages(prev => [...prev, botMsg]);
+      await saveMessage(botMsg);
+      setIsLoading(false);
+      return;
+    }
+
+    const newShownPlaces = remainingPlaces.slice(0, 5);
+    const newRemainingPlaces = remainingPlaces.slice(5);
+    
+    const responseText = `🔍 Нашла ещё ${newShownPlaces.length} ${declOfNum(newShownPlaces.length, ['место', 'места', 'мест'])}:`;
+
+    const botMsg: Message = {
+      id: `b_${Date.now()}`,
+      text: responseText,
+      isUser: false,
+      timestamp: new Date(),
+      places: newShownPlaces,
+      lastSearchQuery: message.lastSearchQuery,
+      lastSearchType: message.lastSearchType,
+      lastSearchCategory: message.lastSearchCategory,
+      currentIndex: (message.currentIndex || 5) + 5,
+      allPlacesCache: newRemainingPlaces,
     };
     setMessages(prev => [...prev, botMsg]);
     await saveMessage(botMsg);
@@ -464,8 +536,12 @@ export default function BotScreen() {
     }).filter(Boolean);
     const hasPhotos = photoUrls.length > 0;
 
-    const nextPhoto = () => setPhotoIndex((prev) => (prev + 1) % photoUrls.length);
-    const prevPhoto = () => setPhotoIndex((prev) => (prev - 1 + photoUrls.length) % photoUrls.length);
+    const nextPhoto = () => {
+      setPhotoIndex((prev) => (prev + 1) % photoUrls.length);
+    };
+    const prevPhoto = () => {
+      setPhotoIndex((prev) => (prev - 1 + photoUrls.length) % photoUrls.length);
+    };
 
     return (
       <View style={styles.placeCardWrapper}>
@@ -503,16 +579,18 @@ export default function BotScreen() {
                 {isFavorite ? '❤️' : '🤍'}
               </Text>
             </TouchableOpacity>
-            {favoriteStatus && (
+            {favoriteStatus ? (
               <View style={styles.favoriteStatusBadge}>
                 <Text style={styles.favoriteStatusText}>{favoriteStatus}</Text>
               </View>
-            )}
+            ) : null}
           </View>
           <View style={styles.cardContent}>
             <Text style={styles.cardTitle}>{place.name}</Text>
             <Text style={styles.cardCategory}>{place.category}</Text>
-            {place.external_rating && <Text style={styles.cardRating}>⭐ {parseFloat(place.external_rating).toFixed(1)}</Text>}
+            {place.external_rating ? (
+              <Text style={styles.cardRating}>⭐ {parseFloat(place.external_rating).toFixed(1)}</Text>
+            ) : null}
             <Text style={styles.cardAddress}>{place.address}</Text>
           </View>
         </TouchableOpacity>
@@ -524,13 +602,14 @@ export default function BotScreen() {
     const isBot = !item.isUser;
     const timeStr = item.timestamp.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
     const showYandex = isBot && !item.places && item.text.includes('Яндекс.Картах');
+    const showMoreButton = isBot && item.places && item.places.length > 0;
 
     return (
       <View style={styles.messageWrapper}>
         <View style={[styles.messageRow, isBot ? styles.botRow : styles.userRow]}>
           <View style={[styles.messageBubble, isBot ? styles.botBubble : styles.userBubble]}>
             <Text style={[styles.messageText, isBot ? styles.botText : styles.userText]}>{item.text}</Text>
-            {item.places && item.places.length > 0 && (
+            {item.places && item.places.length > 0 ? (
               <>
                 <ScrollView
                   horizontal
@@ -538,23 +617,26 @@ export default function BotScreen() {
                   style={styles.horizontalList}
                   contentContainerStyle={styles.horizontalListContent}
                 >
-                  {item.places.map(place => (
+                  {item.places.map((place: any) => (
                     <PlaceCardComponent key={place.id} place={place} />
                   ))}
                 </ScrollView>
-                <TouchableOpacity style={styles.moreButton} onPress={() => send(item.lastSearchQuery || lastSearchQuery)}>
+                <TouchableOpacity 
+                  style={styles.moreButton} 
+                  onPress={() => loadMoreOptions(item)}
+                >
                   <Text style={styles.moreButtonText}>🔄 Ещё варианты</Text>
                 </TouchableOpacity>
               </>
-            )}
-            {showYandex && (
+            ) : null}
+            {showYandex ? (
               <TouchableOpacity
                 style={styles.yandexButton}
                 onPress={() => Linking.openURL(`https://yandex.ru/maps/?text=${encodeURIComponent(item.lastSearchQuery || '')}`)}
               >
                 <Text style={styles.yandexButtonText}>🗺️ Поискать в Яндекс.Картах</Text>
               </TouchableOpacity>
-            )}
+            ) : null}
             <Text style={[styles.messageTime, isBot ? styles.botTime : styles.userTime]}>{timeStr}</Text>
           </View>
         </View>
@@ -587,7 +669,7 @@ export default function BotScreen() {
         ref={flatListRef}
         data={messages}
         renderItem={renderMessage}
-        keyExtractor={item => item.id}
+        keyExtractor={(item: Message) => item.id}
         contentContainerStyle={styles.listContent}
       />
       <View style={styles.inputArea}>
@@ -652,14 +734,14 @@ export default function BotScreen() {
               <Text style={styles.modalOptionText}>Любимое место</Text>
             </TouchableOpacity>
 
-            {favoritePlaces.has(currentPlaceId || '') && (
+            {favoritePlaces.has(currentPlaceId || '') ? (
               <TouchableOpacity 
                 style={styles.removeOption}
                 onPress={removeFromFavorites}
               >
                 <Text style={styles.removeOptionText}>🗑️ Удалить из избранного</Text>
               </TouchableOpacity>
-            )}
+            ) : null}
 
             <TouchableOpacity 
               style={styles.cancelButton}
@@ -677,7 +759,6 @@ export default function BotScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a1a',
   },
   header: {
     flexDirection: 'row',
