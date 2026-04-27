@@ -12,7 +12,14 @@ export default function ProfileScreen() {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogout = () => {
-    logout();
+    Alert.alert(
+      'Выход из аккаунта',
+      'Вы уверены, что хотите выйти?',
+      [
+        { text: 'Отмена', style: 'cancel' },
+        { text: 'Выйти', style: 'destructive', onPress: () => logout() }
+      ]
+    );
   };
 
   const handleViewedPlaces = () => {
@@ -153,8 +160,13 @@ export default function ProfileScreen() {
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
           >
-            {/* Фото профиля по центру */}
-            <View style={styles.photoSection}>
+            {/* Username сверху */}
+            <View style={styles.header}>
+              <Text style={styles.headerUsername}>@{user.username || 'username'}</Text>
+            </View>
+
+            {/* Фото профиля слева и имя справа */}
+            <View style={styles.profileRow}>
               <TouchableOpacity 
                 style={styles.photoContainer}
                 onPress={showImagePickerOptions}
@@ -174,7 +186,11 @@ export default function ProfileScreen() {
                   </View>
                 )}
               </TouchableOpacity>
-              <Text style={styles.userUsername}>@{user.username || 'username'}</Text>
+
+              <View style={styles.userInfo}>
+                <Text style={styles.userName}>{user.firstname || user.username || 'Пользователь'}</Text>
+                <Text style={styles.userEmail}>{user.email}</Text>
+              </View>
             </View>
 
             {/* Информация профиля */}
@@ -265,7 +281,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa', // Основной фон оставлен
+    backgroundColor: '#EFE9E1',
   },
   profileContent: {
     flex: 1,
@@ -275,12 +291,23 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 100,
   },
-  photoSection: {
+  header: {
+    marginBottom: 20,
+    paddingHorizontal: 8,
+  },
+  headerUsername: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#72383D',
+    fontFamily: 'Banshrift',
+  },
+  profileRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EFE9E1', // Новый цвет карточки
-    padding: 24,
+    marginBottom: 24,
+    backgroundColor: '#EFE9E1',
+    padding: 16,
     borderRadius: 12,
-    marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -288,13 +315,13 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   photoContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     overflow: 'hidden',
-    marginBottom: 16,
+    marginRight: 20,
     borderWidth: 3,
-    borderColor: '#72383D', // Новый цвет обводки аватарки
+    borderColor: '#72383D',
     position: 'relative',
   },
   profilePhoto: {
@@ -305,7 +332,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 5,
     right: 5,
-    backgroundColor: '#AC9C8D', // Новый цвет кнопки смены аватарки
+    backgroundColor: '#AC9C8D',
     width: 32,
     height: 32,
     borderRadius: 16,
@@ -316,7 +343,7 @@ const styles = StyleSheet.create({
   },
   cameraIcon: {
     fontSize: 16,
-    fontFamily: 'Banshrift', // Новый шрифт
+    fontFamily: 'Banshrift',
   },
   loadingOverlay: {
     position: 'absolute',
@@ -327,23 +354,32 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 60,
+    borderRadius: 50,
   },
   loadingText: {
     color: 'white',
     fontSize: 12,
     fontWeight: 'bold',
-    fontFamily: 'Banshrift', // Новый шрифт
+    fontFamily: 'Banshrift',
   },
-  userUsername: {
-    fontSize: 20,
+  userInfo: {
+    flex: 1,
+  },
+  userName: {
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#72383D', // Новый цвет username
-    textAlign: 'center',
-    fontFamily: 'Banshrift', // Новый шрифт
+    color: '#72383D',
+    fontFamily: 'Banshrift',
+    marginBottom: 4,
+  },
+  userEmail: {
+    fontSize: 14,
+    color: '#72383D',
+    fontFamily: 'Banshrift',
+    opacity: 0.7,
   },
   section: {
-    backgroundColor: '#EFE9E1', // Новый цвет карточек
+    backgroundColor: '#EFE9E1',
     borderRadius: 12,
     padding: 20,
     marginBottom: 16,
@@ -356,9 +392,9 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#72383D', // Новый цвет заголовка
+    color: '#72383D',
     marginBottom: 20,
-    fontFamily: 'Banshrift', // Новый шрифт
+    fontFamily: 'Banshrift',
   },
   infoRow: {
     flexDirection: 'row',
@@ -366,21 +402,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: '#e0e0e0',
   },
   infoLabel: {
     fontSize: 16,
-    color: '#000000', // Черный цвет текста
+    color: '#72383D',
     flex: 1,
-    fontFamily: 'Banshrift', // Новый шрифт
+    fontFamily: 'Banshrift',
   },
   infoValue: {
     fontSize: 16,
-    color: '#000000', // Черный цвет текста
+    color: '#72383D',
     fontWeight: '500',
     flex: 1,
     textAlign: 'right',
-    fontFamily: 'Banshrift', // Новый шрифт
+    fontFamily: 'Banshrift',
   },
   divider: {
     height: 1,
@@ -388,7 +424,7 @@ const styles = StyleSheet.create({
     marginVertical: 16,
   },
   actionButton: {
-    backgroundColor: '#72383D', // Новый цвет кнопок
+    backgroundColor: '#72383D',
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -403,15 +439,15 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
-    fontFamily: 'Banshrift', // Новый шрифт
+    fontFamily: 'Banshrift',
   },
   logoutButton: {
-    backgroundColor: '#72383D', // Новый цвет кнопки выхода
+    backgroundColor: '#72383D',
     marginTop: 8,
   },
   logoutButtonText: {
     color: 'white',
-    fontFamily: 'Banshrift', // Новый шрифт
+    fontFamily: 'Banshrift',
   },
   bottomSpacer: {
     height: 80,
@@ -425,12 +461,12 @@ const styles = StyleSheet.create({
   },
   guestText: {
     fontSize: 18,
-    color: '#000000', // Черный цвет текста
+    color: '#72383D',
     marginBottom: 20,
-    fontFamily: 'Banshrift', // Новый шрифт
+    fontFamily: 'Banshrift',
   },
   authButton: {
-    backgroundColor: '#72383D', // Новый цвет кнопки
+    backgroundColor: '#72383D',
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -441,6 +477,6 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
-    fontFamily: 'Banshrift', // Новый шрифт
+    fontFamily: 'Banshrift',
   },
 });
