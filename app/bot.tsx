@@ -41,6 +41,45 @@ const declOfNum = (n: number, titles: [string, string, string]): string => {
   return titles[n % 100 > 4 && n % 100 < 20 ? 2 : cases[Math.min(n % 10, 5)]];
 };
 
+// Семантические мапперы (ключевые слова -> типы мест)
+const semanticMap: Record<string, string[]> = {
+  'поесть': ['ресторан', 'кафе', 'бар', 'паб'],
+  'еда': ['ресторан', 'кафе'],
+  'проголодался': ['ресторан', 'кафе'],
+  'потанцевать': ['бар', 'паб', 'клуб'],
+  'танцы': ['бар', 'паб', 'клуб'],
+  'отдохнуть': ['парк', 'кафе', 'бар'],
+  'с детьми': ['парк', 'музей', 'аттракцион', 'кафе'],
+  'ребенком': ['парк', 'музей', 'аттракцион'],
+  'романтический вечер': ['ресторан', 'театр'],
+  'свидание': ['ресторан', 'театр', 'кафе'],
+  'активный отдых': ['парк', 'аттракцион', 'спорткомплекс'],
+  'спорт': ['парк', 'спорткомплекс'],
+  'культура': ['музей', 'театр', 'галерея', 'достопримечательность'],
+  'искусство': ['музей', 'театр', 'галерея'],
+  'выпить': ['бар', 'паб'],
+  'кофе': ['кафе'],
+  'завтрак': ['кафе'],
+  'ужин': ['ресторан'],
+  'обед': ['ресторан', 'кафе'],
+  'перекусить': ['кафе'],
+  'погулять': ['парк'],
+  'природа': ['парк'],
+};
+
+const getPlacesByIntent = (query: string): string[] => {
+  const lowerQuery = query.toLowerCase();
+  const matchedTypes = new Set<string>();
+  
+  for (const [keyword, types] of Object.entries(semanticMap)) {
+    if (lowerQuery.includes(keyword)) {
+      types.forEach(t => matchedTypes.add(t));
+    }
+  }
+  
+  return Array.from(matchedTypes);
+};
+
 export default function BotScreen() {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([
@@ -222,7 +261,7 @@ export default function BotScreen() {
       return '😊 Пожалуйста! Обращайтесь ещё.';
     }
     if (lower.includes('помощь')) {
-      return '📋 Что я умею:\n\n1. 🔍 Найти место по названию\n2. 🏷️ Найти места по типу (рестораны, кафе, музеи, театры, пабы)\n3. 🏆 Показать популярные места\n4. 🎲 Случайное место\n5. 🗑️ Очистить историю\n6. ❤️ Избранное (нажмите на сердечко)';
+      return '📋 Что я умею:\n\n1. 🔍 Найти место по названию\n2. 🏷️ Найти места по типу (рестораны, кафе, музеи, театры, пабы)\n3. 🏆 Показать популярные места\n4. 🎲 Случайное место\n5. 💡 Найти по желанию: "где поесть", "потанцевать", "с детьми", "романтический вечер"\n6. 🗑️ Очистить историю\n7. ❤️ Избранное (нажмите на сердечко)';
     }
     return null;
   };
@@ -325,6 +364,29 @@ export default function BotScreen() {
     }));
   };
 
+  const getSemanticPlaces = async (query: string): Promise<any[]> => {
+    const types = getPlacesByIntent(query);
+    if (types.length === 0) return [];
+    
+    let allPlaces: any[] = [];
+    for (const type of types) {
+      const places = await searchByType(type);
+      allPlaces = [...allPlaces, ...places];
+    }
+    
+    const uniquePlaces = allPlaces.filter((item, index, self) => 
+      index === self.findIndex((i: any) => i.id === item.id)
+    );
+    
+    uniquePlaces.sort((a, b) => {
+      const ratingA = a.external_rating ? parseFloat(a.external_rating) : 0;
+      const ratingB = b.external_rating ? parseFloat(b.external_rating) : 0;
+      return ratingB - ratingA;
+    });
+    
+    return uniquePlaces;
+  };
+
   const send = async (text: string, retryQuery?: string) => {
     const queryToSend = retryQuery || text;
     if (!queryToSend.trim() || isLoading) return;
@@ -361,7 +423,14 @@ export default function BotScreen() {
     let category = '';
     const lower = queryToSend.toLowerCase();
 
-    if (lower === 'рестораны' || lower === 'ресторан') {
+    // Сначала проверяем семантические запросы
+    const semanticTypes = getPlacesByIntent(queryToSend);
+    
+    if (semanticTypes.length > 0) {
+      allPlaces = await getSemanticPlaces(queryToSend);
+      searchType = 'semantic';
+      category = semanticTypes.join(', ');
+    } else if (lower === 'рестораны' || lower === 'ресторан') {
       allPlaces = await searchByType('ресторан');
       searchType = 'type';
       category = 'ресторан';
