@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
   ScrollView,
   Image,
-  ImageBackground,
   Alert,
   Linking,
   Dimensions,
@@ -21,7 +20,6 @@ import { pb } from './utils/pb';
 
 const { width: screenWidth } = Dimensions.get('window');
 const BOT_IMAGE = require('../assets/images/bot.png');
-const BACKGROUND_IMAGE = require('../assets/images/фон.jpg');
 
 type Message = {
   id: string;
@@ -41,7 +39,6 @@ const declOfNum = (n: number, titles: [string, string, string]): string => {
   return titles[n % 100 > 4 && n % 100 < 20 ? 2 : cases[Math.min(n % 10, 5)]];
 };
 
-// Семантические мапперы (ключевые слова -> типы мест)
 const semanticMap: Record<string, string[]> = {
   'поесть': ['ресторан', 'кафе', 'бар', 'паб'],
   'еда': ['ресторан', 'кафе'],
@@ -423,7 +420,6 @@ export default function BotScreen() {
     let category = '';
     const lower = queryToSend.toLowerCase();
 
-    // Сначала проверяем семантические запросы
     const semanticTypes = getPlacesByIntent(queryToSend);
     
     if (semanticTypes.length > 0) {
@@ -658,7 +654,7 @@ export default function BotScreen() {
             <Text style={styles.cardTitle}>{place.name}</Text>
             <Text style={styles.cardCategory}>{place.category}</Text>
             {place.external_rating ? (
-              <Text style={styles.cardRating}>⭐ {parseFloat(place.external_rating).toFixed(1)}</Text>
+              <Text style={styles.cardRating}>★ {parseFloat(place.external_rating).toFixed(1)}</Text>
             ) : null}
             <Text style={styles.cardAddress}>{place.address}</Text>
           </View>
@@ -724,7 +720,7 @@ export default function BotScreen() {
   ];
 
   return (
-    <ImageBackground source={BACKGROUND_IMAGE} style={styles.container} resizeMode="cover">
+    <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.headerLeft} onPress={sendBotGreeting} activeOpacity={0.7}>
           <Image source={BOT_IMAGE} style={styles.headerAvatar} />
@@ -821,13 +817,14 @@ export default function BotScreen() {
           </View>
         </View>
       </Modal>
-    </ImageBackground>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#F4F1EE',
   },
   header: {
     flexDirection: 'row',
@@ -849,21 +846,25 @@ const styles = StyleSheet.create({
     borderRadius: 24,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
-    color: '#EFE9E1',
+    color: '#FFFFFF',
     fontFamily: 'Banshrift',
+    letterSpacing: 1,
+    textShadowColor: 'rgba(0,0,0,0.25)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   clearButton: {
-    backgroundColor: '#FAF9F7',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: 20,
     borderWidth: 1.5,
     borderColor: '#72383D',
   },
   clearButtonText: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#72383D',
     fontFamily: 'Banshrift',
     fontWeight: '600',
@@ -888,7 +889,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   suggestionButton: {
-    backgroundColor: '#AC9C8D',
+    backgroundColor: '#FAF9F7',
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
@@ -898,7 +899,7 @@ const styles = StyleSheet.create({
   },
   suggestionText: {
     fontSize: 14,
-    color: '#EFE9E1',
+    color: '#000000',
     fontFamily: 'Banshrift',
     fontWeight: '600',
   },
@@ -916,7 +917,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     fontSize: 14,
-    color: '#72383D',
+    color: '#000000',
     fontFamily: 'Banshrift',
     backgroundColor: '#FAF9F7',
     minHeight: 44,
@@ -956,11 +957,18 @@ const styles = StyleSheet.create({
   messageBubble: {
     borderRadius: 22,
     padding: 12,
-    maxWidth: '80%',
+    maxWidth: '90%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   userBubble: {
-    backgroundColor: '#72383D',
+    backgroundColor: '#AC9C8D',
     borderBottomRightRadius: 6,
+    borderWidth: 1,
+    borderColor: '#8A7B6C',
   },
   botBubble: {
     backgroundColor: '#FAF9F7',
@@ -975,10 +983,11 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   userText: {
-    color: '#EFE9E1',
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
   botText: {
-    color: '#72383D',
+    color: '#000000',
   },
   messageTime: {
     fontSize: 10,
@@ -988,10 +997,10 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   userTime: {
-    color: '#EFE9E1',
+    color: '#FFFFFF',
   },
   botTime: {
-    color: '#72383D',
+    color: '#000000',
   },
 
   horizontalList: {
@@ -1025,7 +1034,7 @@ const styles = StyleSheet.create({
   noImage: {
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#EFE9E1',
+    backgroundColor: '#F4F1EE',
   },
   noImageText: {
     fontSize: 42,
@@ -1089,27 +1098,31 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   cardTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#72383D',
     fontFamily: 'Banshrift',
     marginBottom: 4,
   },
   cardCategory: {
-    fontSize: 12,
-    color: '#72383D',
+    fontSize: 14,
+    color: '#000000',
     fontFamily: 'Banshrift',
     marginBottom: 2,
   },
   cardRating: {
-    fontSize: 12,
-    color: '#72383D',
+    fontSize: 14,
+    color: '#FFD700',
     fontFamily: 'Banshrift',
     marginBottom: 2,
+    fontWeight: 'bold',
+    textShadowColor: '#B8860B',
+    textShadowOffset: { width: 0.5, height: 0.5 },
+    textShadowRadius: 1,
   },
   cardAddress: {
-    fontSize: 11,
-    color: '#72383D',
+    fontSize: 13,
+    color: '#000000',
     fontFamily: 'Banshrift',
   },
 
