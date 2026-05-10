@@ -12,8 +12,8 @@ interface PlaceCardProps {
   item: any;
   onPress: (id: string) => void;
   isViewed: boolean;
-  ratingValue: number | null;  // ← ДОБАВЬ ЭТО
-  yandexMapId?: string;        // ← ДОБАВЬ ЭТО
+  ratingValue: number | null;
+  yandexMapId?: string;
 }
 
 export const PlaceCard = ({ item, onPress, isViewed, ratingValue, yandexMapId }: PlaceCardProps) => {
@@ -42,14 +42,6 @@ export const PlaceCard = ({ item, onPress, isViewed, ratingValue, yandexMapId }:
     return `${ratingValue.toFixed(1)}★`;
   };
 
-  // Для отладки
-  console.log('PlaceCard:', {
-    name: item.name,
-    yandexMapId,
-    ratingValue,
-    externalRating: item.external_rating
-  });
-
   return (
     <TouchableOpacity 
       style={styles.placeCard}
@@ -71,7 +63,7 @@ export const PlaceCard = ({ item, onPress, isViewed, ratingValue, yandexMapId }:
               </View>
             )}
             
-            {/* Бейдж рейтинга - ПОКАЗЫВАЕМ ЕСЛИ ЕСТЬ ratingValue */}
+            {/* Бейдж рейтинга */}
             {ratingValue !== null && ratingValue !== undefined && ratingValue > 0 && (
               <View style={[
                 styles.ratingBadge,
@@ -81,7 +73,7 @@ export const PlaceCard = ({ item, onPress, isViewed, ratingValue, yandexMapId }:
               </View>
             )}
             
-            {/* Если есть yandex_map_id, но нет рейтинга - можно показать другой значок */}
+            {/* Если есть yandex_map_id, но нет рейтинга */}
             {yandexMapId && (ratingValue === null || ratingValue === undefined || ratingValue === 0) && (
               <View style={styles.loadingRatingBadge}>
                 <Text style={styles.loadingRatingBadgeText}>★ ?</Text>
@@ -114,13 +106,11 @@ export const PlaceCard = ({ item, onPress, isViewed, ratingValue, yandexMapId }:
         ) : (
           <View style={[styles.photoPlaceholder, { backgroundColor: '#72383D' }]}>
             <Text style={styles.photoPlaceholderText}>📸</Text>
-            {/* Индикатор просмотренного места для placeholder */}
             {isViewed && (
               <View style={styles.viewedBadge}>
                 <Text style={styles.viewedBadgeText}>👁️</Text>
               </View>
             )}
-            {/* Бейдж рейтинга для placeholder */}
             {ratingValue !== null && ratingValue !== undefined && ratingValue > 0 && (
               <View style={[
                 styles.ratingBadge,
@@ -129,7 +119,6 @@ export const PlaceCard = ({ item, onPress, isViewed, ratingValue, yandexMapId }:
                 <Text style={styles.ratingBadgeText}>{formatRating()}</Text>
               </View>
             )}
-            {/* Если есть yandex_map_id, но нет рейтинга */}
             {yandexMapId && (ratingValue === null || ratingValue === undefined || ratingValue === 0) && (
               <View style={styles.loadingRatingBadge}>
                 <Text style={styles.loadingRatingBadgeText}>★ ?</Text>
@@ -142,13 +131,10 @@ export const PlaceCard = ({ item, onPress, isViewed, ratingValue, yandexMapId }:
       <View style={styles.placeInfo}>
         <Text style={styles.placeName} numberOfLines={2}>{item.name}</Text>
         <Text style={styles.placeDescription} numberOfLines={1}>{item.description}</Text>
-        <View style={styles.ratingContainer}>
-          {/* ТОЛЬКО КАТЕГОРИЯ */}
-          <View style={styles.categoryBadge}>
-            <Text style={styles.categoryBadgeText}>{item.expand?.category?.name || 'Другие места'}</Text>
-          </View>
-        </View>
-        <Text style={styles.address} numberOfLines={2}>{item.address}</Text>
+        <Text style={styles.address} numberOfLines={2}>
+          <Text style={styles.addressLabel}>Адрес: </Text>
+          {item.address}
+        </Text>
       </View>
     </TouchableOpacity>
   );
@@ -310,27 +296,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     fontFamily: 'Banshrift',
   },
-  ratingContainer: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  categoryBadge: {
-    backgroundColor: '#72383D',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  categoryBadgeText: {
-    fontSize: 10,
-    color: 'white',
-    fontWeight: '500',
-    fontFamily: 'Banshrift',
-  },
   address: {
     fontSize: 12,
     color: '#000000',
     fontFamily: 'Banshrift',
+  },
+  addressLabel: {
+    fontWeight: '600',
+    color: '#72383D',
   },
 });
