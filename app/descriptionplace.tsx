@@ -101,7 +101,7 @@ export default function DescriptionPlace() {
     
     const interval = setInterval(() => {
       loadYandexRating(place.yandex_map_id);
-    }, 5 * 60 * 1000); // Каждые 5 минут
+    }, 5 * 60 * 1000);
     
     return () => clearInterval(interval);
   }, [place?.yandex_map_id]);
@@ -113,20 +113,17 @@ export default function DescriptionPlace() {
       setLoadError(null);
       console.log('Загрузка места с ID:', params.id);
       
-      // Загружаем место из PocketBase
       const record = await pb.collection('places').getOne(params.id as string, {
         expand: 'category'
       });
       setPlace(record);
       
-      // Загружаем Яндекс рейтинг, если есть ID
       if (record.yandex_map_id) {
         await loadYandexRating(record.yandex_map_id);
       } else {
         console.log('У места нет yandex_map_id, пропускаем загрузку рейтинга');
       }
       
-      // Проверяем избранное для пользователя
       if (user) {
         await checkIfFavorite();
       }
@@ -334,6 +331,34 @@ export default function DescriptionPlace() {
     );
   };
 
+  // Функция: переход в Яндекс.Карты к отзывам (с подтверждением)
+  const openYandexReviews = () => {
+    if (!place?.yandex_map_id) {
+      Alert.alert('Ошибка', 'ID Яндекс Карт не найден');
+      return;
+    }
+    
+    Alert.alert(
+      'Переход в Яндекс.Карты',
+      'Вы хотите посмотреть отзывы на Яндекс.Картах?',
+      [
+        {
+          text: 'Нет',
+          style: 'cancel',
+        },
+        {
+          text: 'Да',
+          onPress: () => {
+            const url = `https://yandex.ru/maps/org/${place.yandex_map_id}/reviews/`;
+            Linking.openURL(url).catch(() => {
+              Alert.alert('Ошибка', 'Не удалось открыть страницу с отзывами');
+            });
+          },
+        },
+      ]
+    );
+  };
+
   // Информация о ценовом уровне
   const getPriceLevelInfo = (priceLevel: string) => {
     if (!priceLevel) {
@@ -385,27 +410,24 @@ export default function DescriptionPlace() {
     );
   };
 
-  // Рендеринг рейтинга
+  // Рендеринг рейтинга (стилизован как адрес)
   const renderRating = () => {
-    console.log('📊 Рендер рейтинга:', {
-      isLoadingRating,
-      yandexRating,
-      placeExternalRating: place?.external_rating,
-      ratingError
-    });
-
     if (isLoadingRating) {
       return (
-        <View style={styles.rating}>
+        <View style={styles.ratingFull}>
           <ActivityIndicator size="small" color="#856404" />
-          <Text style={styles.ratingText}>Загрузка оценки...</Text>
+          <Text style={styles.ratingText}> Загрузка оценки...</Text>
         </View>
       );
     }
 
     if (yandexRating) {
       return (
-        <View style={styles.rating}>
+        <TouchableOpacity 
+          style={styles.ratingFull}
+          onPress={openYandexReviews}
+          activeOpacity={0.7}
+        >
           <View style={styles.yandexRatingContainer}>
             <Text style={styles.ratingText}>
               ⭐ {yandexRating.rating.toFixed(1)}
@@ -415,22 +437,21 @@ export default function DescriptionPlace() {
               <Text style={styles.reviewsCount}>{yandexRating.reviews} отзывов</Text>
             )}
           </View>
-        </View>
+        </TouchableOpacity>
       );
     }
 
     if (place.external_rating) {
       return (
-        <View style={styles.rating}>
+        <View style={styles.ratingFull}>
           <Text style={styles.ratingText}>⭐ {place.external_rating}</Text>
           <Text style={styles.ratingSource}> (Сохраненная оценка)</Text>
         </View>
       );
     }
 
-    // Нет рейтинга
     return (
-      <View style={[styles.rating, styles.noRating]}>
+      <View style={[styles.ratingFull]}>
         <Text style={styles.ratingText}>⭐ Нет оценок</Text>
         {place.yandex_map_id && ratingError && (
           <Text style={styles.ratingErrorText}>{ratingError}</Text>
@@ -447,6 +468,40 @@ export default function DescriptionPlace() {
     );
   };
 
+  // Рендеринг модального окна цен (с прокруткой)
+  const renderPriceModal = () => {
+    const priceInfo = getPriceLevelInfo(place?.price_level);
+    
+    return (
+      <Modal
+        visible={showPriceInfoModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowPriceInfoModal(false)}
+      >
+        <View style={styles.priceModalOverlay}>
+          <View style={styles.priceModalContent}>
+            <ScrollView 
+              style={styles.priceModalScroll}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.priceModalScrollContent}
+            >
+              <Text style={styles.priceModalEmoji}>{priceInfo.emoji}</Text>
+              <Text style={styles.priceModalTitle}>{priceInfo.title}</Text>
+              <Text style={styles.priceModalDescription}>{priceInfo.description}</Text>
+              <TouchableOpacity 
+                style={styles.priceModalCloseButton}
+                onPress={() => setShowPriceInfoModal(false)}
+              >
+                <Text style={styles.priceModalCloseButtonText}>Понятно</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
   // Повторная загрузка
   const handleRetry = () => {
     loadPlace();
@@ -460,6 +515,7 @@ export default function DescriptionPlace() {
           <TouchableOpacity style={styles.backButton} onPress={handleBack}>
             <Text style={styles.backButtonText}>←</Text>
           </TouchableOpacity>
+          <View style={styles.headerCenter} />
           <View style={styles.favoriteButton} />
         </View>
         <View style={styles.loadingContainer}>
@@ -479,6 +535,7 @@ export default function DescriptionPlace() {
           <TouchableOpacity style={styles.backButton} onPress={handleBack}>
             <Text style={styles.backButtonText}>←</Text>
           </TouchableOpacity>
+          <View style={styles.headerCenter} />
           <View style={styles.favoriteButton} />
         </View>
         <View style={styles.errorContainer}>
@@ -501,6 +558,7 @@ export default function DescriptionPlace() {
           <TouchableOpacity style={styles.backButton} onPress={handleBack}>
             <Text style={styles.backButtonText}>←</Text>
           </TouchableOpacity>
+          <View style={styles.headerCenter} />
           <View style={styles.favoriteButton} />
         </View>
         <View style={styles.errorContainer}>
@@ -524,6 +582,9 @@ export default function DescriptionPlace() {
         <TouchableOpacity style={styles.backButton} onPress={handleBack}>
           <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
+        <View style={styles.headerCenter}>
+          <Text style={styles.categoryBadge}>{place.expand?.category?.name || 'Другие места'}</Text>
+        </View>
         <TouchableOpacity style={styles.favoriteButton} onPress={toggleFavoriteModal}>
           <Text style={styles.favoriteButtonText}>
             {currentFavorite ? '❤️' : '🤍'}
@@ -580,14 +641,8 @@ export default function DescriptionPlace() {
         <View style={styles.infoSection}>
           <Text style={styles.placeName}>{place.name}</Text>
           
-          {/* Рейтинг и категория */}
-          <View style={styles.ratingCategory}>
-            {renderRating()}
-            
-            <View style={styles.category}>
-              <Text style={styles.categoryText}>{place.expand?.category?.name || 'Другие места'}</Text>
-            </View>
-          </View>
+          {/* Рейтинг - стилизован как адрес */}
+          {renderRating()}
 
           {/* Статус избранного */}
           {currentFavorite && (
@@ -620,7 +675,7 @@ export default function DescriptionPlace() {
               onPress={handleOpenMap}
             >
               <Text style={styles.actionButtonIcon}>🗺️</Text>
-              <Text style={styles.actionButtonText}>Открыть в картах</Text>
+              <Text style={styles.actionButtonText}> Маршрут </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -720,26 +775,7 @@ export default function DescriptionPlace() {
       </Modal>
 
       {/* Модальное окно информации о ценах */}
-      <Modal
-        visible={showPriceInfoModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowPriceInfoModal(false)}
-      >
-        <View style={styles.priceModalOverlay}>
-          <View style={styles.priceModalContent}>
-            <Text style={styles.priceModalEmoji}>{priceInfo.emoji}</Text>
-            <Text style={styles.priceModalTitle}>{priceInfo.title}</Text>
-            <Text style={styles.priceModalDescription}>{priceInfo.description}</Text>
-            <TouchableOpacity 
-              style={styles.priceModalCloseButton}
-              onPress={() => setShowPriceInfoModal(false)}
-            >
-              <Text style={styles.priceModalCloseButtonText}>Понятно</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      {renderPriceModal()}
 
       <NavigationMenu />
     </View>
@@ -769,6 +805,17 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     fontFamily: 'Banshrift',
+  },
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  categoryBadge: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    fontFamily: 'Banshrift',
+    textAlign: 'center',
   },
   favoriteButton: {
     padding: 8,
@@ -865,73 +912,57 @@ const styles = StyleSheet.create({
     lineHeight: 28,
     fontFamily: 'Banshrift',
   },
-  ratingCategory: {
-    flexDirection: 'row',
-    marginBottom: 12,
-  },
-  rating: {
-    backgroundColor: '#fff3cd',
+  ratingFull: {
+    backgroundColor: '#f8f9fa',
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginRight: 8,
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#72383D',
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
+    justifyContent: 'flex-start',
+    marginBottom: 12,
+    width: '100%',
   },
   ratingText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#856404',
+    fontWeight: '500',
+    color: '#000000',
     fontFamily: 'Banshrift',
   },
-  noRating: {
-    flexWrap: 'wrap',
-  },
-  ratingErrorText: {
-    fontSize: 10,
-    color: '#d32f2f',
-    marginTop: 2,
+  ratingSource: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: 'normal',
     fontFamily: 'Banshrift',
   },
   yandexRatingContainer: {
     alignItems: 'flex-start',
   },
-  ratingSource: {
-    fontSize: 10,
-    color: '#666',
-    fontWeight: 'normal',
-    fontFamily: 'Banshrift',
-  },
   reviewsCount: {
-    fontSize: 10,
+    fontSize: 12,
     color: '#666',
     marginTop: 2,
     fontFamily: 'Banshrift',
   },
+  ratingErrorText: {
+    fontSize: 12,
+    color: '#d32f2f',
+    marginTop: 4,
+    fontFamily: 'Banshrift',
+  },
   refreshRatingButton: {
     backgroundColor: '#72383D',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 8,
-    marginTop: 4,
+    marginTop: 8,
     alignSelf: 'flex-start',
   },
   refreshRatingText: {
-    fontSize: 10,
+    fontSize: 12,
     color: 'white',
-    fontFamily: 'Banshrift',
-  },
-  category: {
-    backgroundColor: '#d1ecf1',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  categoryText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#0c5460',
     fontFamily: 'Banshrift',
   },
   favoriteStatus: {
@@ -1020,7 +1051,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#f8f9fa',
-    padding: 16,
+    padding: 14,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#e0e0e0',
@@ -1033,21 +1064,21 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   priceStickerTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: 'normal',
     color: '#72383D',
     marginBottom: 2,
     fontFamily: 'Banshrift',
   },
   priceStickerValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: 'normal',
     color: '#000000',
     marginBottom: 4,
     fontFamily: 'Banshrift',
   },
   priceStickerSubtitle: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#666',
     fontFamily: 'Banshrift',
   },
@@ -1215,23 +1246,29 @@ const styles = StyleSheet.create({
   priceModalContent: {
     backgroundColor: 'white',
     borderRadius: 20,
-    padding: 24,
     width: '100%',
     maxWidth: 350,
-    alignItems: 'center',
+    maxHeight: '80%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 10,
     elevation: 10,
   },
+  priceModalScroll: {
+    maxHeight: '100%',
+  },
+  priceModalScrollContent: {
+    padding: 24,
+    alignItems: 'center',
+  },
   priceModalEmoji: {
-    fontSize: 64,
+    fontSize: 48,
     marginBottom: 16,
   },
   priceModalTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 20,
+    fontWeight: 'normal',
     color: '#72383D',
     marginBottom: 12,
     textAlign: 'center',
@@ -1239,6 +1276,7 @@ const styles = StyleSheet.create({
   },
   priceModalDescription: {
     fontSize: 16,
+    fontWeight: 'normal',
     color: '#000000',
     textAlign: 'center',
     lineHeight: 22,
@@ -1255,7 +1293,7 @@ const styles = StyleSheet.create({
   },
   priceModalCloseButtonText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: 'normal',
     color: 'white',
     fontFamily: 'Banshrift',
   },
