@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Dimensions, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, FlatList, Image, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useAuth } from './_layout';
 import NavigationMenu from './components/NavigationMenu';
 import { pb } from './utils/pb';
@@ -9,10 +9,69 @@ const { width: screenWidth } = Dimensions.get('window');
 
 export default function FavoritesScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const [activeTab, setActiveTab] = useState('all');
   const [favorites, setFavorites] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isPublic, setIsPublic] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  // Загрузка настроек пользователя
+  const loadUserSettings = async () => {
+    if (!user) return;
+    try {
+      const userRecord = await pb.collection('users').getOne(user.id);
+      setIsPublic(userRecord.favorites_public === true);
+    } catch (error) {
+      console.log('Ошибка загрузки настроек:', error);
+    }
+  };
+
+  // Сохранение настроек публичности
+  const togglePublicStatus = async () => {
+    if (!user || isUpdating) return;
+    setIsUpdating(true);
+    try {
+      const newStatus = !isPublic;
+      await pb.collection('users').update(user.id, {
+        favorites_public: newStatus
+      });
+      setIsPublic(newStatus);
+      
+      // Обновляем локальный объект user если есть функция updateUser
+      if (updateUser) {
+        const updatedUser = { ...user, favorites_public: newStatus };
+        updateUser(updatedUser);
+      }
+      
+      alert(newStatus ? 'Ваш список избранного теперь виден другим пользователям' : 'Ваш список избранного теперь приватный');
+    } catch (error) {
+      console.error('Ошибка обновления статуса:', error);
+      alert('Не удалось изменить статус');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  // Поделиться ссылкой на профиль
+  const shareProfile = async () => {
+    if (!user) return;
+    
+    // Генерируем ссылку на профиль пользователя
+    const profileUrl = `https://mom-dont-lose.app/userprofile/${user.id}`;
+    const shareMessage = `🗺️ Посмотрите избранные места пользователя ${user.firstname || user.username || 'Мама не теряй'}!\n\n${profileUrl}`;
+    
+    try {
+      await Share.share({
+        message: shareMessage,
+        url: profileUrl,
+        title: `Избранные места ${user.firstname || user.username}`,
+      });
+    } catch (error) {
+      console.error('Ошибка шаринга:', error);
+      alert('Не удалось поделиться');
+    }
+  };
 
   const loadFavorites = async () => {
     try {
@@ -20,13 +79,11 @@ export default function FavoritesScreen() {
       console.log('ID пользователя из контекста:', user?.id);
       console.log('Email пользователя:', user?.email);
       
-      // Получим текущего пользователя из PocketBase чтобы сравнить ID
       if (pb.authStore.model) {
         console.log('ID пользователя из authStore:', pb.authStore.model.id);
         console.log('Email пользователя из authStore:', pb.authStore.model.email);
       }
       
-      // Запрос с ID из authStore (более надежно)
       const currentUserId = pb.authStore.model?.id;
       const result = await pb.collection('favorites').getList(1, 50, {
         filter: `user = "${currentUserId}"`
@@ -36,7 +93,7 @@ export default function FavoritesScreen() {
       console.log('Записи:', result.items);
       
       const favoritesWithPlaces = await Promise.all(
-        result.items.map(async (fav) => {
+        result.items.map(async (fav: any) => {
           try {
             const place = await pb.collection('places').getOne(fav.place, {
               expand: 'category'
@@ -65,6 +122,7 @@ export default function FavoritesScreen() {
   useEffect(() => {
     if (user) {
       loadFavorites();
+      loadUserSettings();
     } else {
       setIsLoading(false);
       setFavorites([]);
@@ -74,7 +132,6 @@ export default function FavoritesScreen() {
   const removeFromFavorites = async (favoriteId: string) => {
     try {
       await pb.collection('favorites').delete(favoriteId);
-      // Обновляем список после удаления
       setFavorites(favorites.filter(fav => fav.id !== favoriteId));
       console.log('Удалено из избранного:', favoriteId);
     } catch (error) {
@@ -207,7 +264,31 @@ export default function FavoritesScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header} />
+      <View style={styles.header}>
+        <View style={styles.headerTop}>
+          <Text style={styles.headerTitle}>Избранное</Text>
+          <TouchableOpacity style={styles.shareButton} onPress={shareProfile}>
+            <Text style={styles.shareButtonText}>📤 Поделиться</Text>
+          </TouchableOpacity>
+        </View>
+        
+        {/* Переключатель приватности */}
+        <View style={styles.privacyToggle}>
+          <Text style={styles.privacyLabel}>
+            {isPublic ? '🌍 Публичный список' : '🔒 Приватный список'}
+          </Text>
+          <TouchableOpacity 
+            style={[styles.toggleButton, isPublic && styles.toggleButtonActive]}
+            onPress={togglePublicStatus}
+            disabled={isUpdating}
+          >
+            <View style={[styles.toggleKnob, isPublic && styles.toggleKnobActive]} />
+          </TouchableOpacity>
+          <Text style={styles.privacyHint}>
+            {isPublic ? 'Ваш список видят другие' : 'Только вы видите список'}
+          </Text>
+        </View>
+      </View>
 
       {/* Табы */}
       <View style={styles.tabsContainer}>
@@ -270,17 +351,81 @@ export default function FavoritesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#EFE9E1', // Новый цвет фона
+    backgroundColor: '#EFE9E1',
   },
   header: {
-    backgroundColor: '#72383D', // Новый цвет хедера
+    backgroundColor: '#72383D',
     paddingTop: 50,
     paddingHorizontal: 16,
     paddingBottom: 16,
   },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#EFE9E1',
+    fontFamily: 'Banshrift',
+  },
+  shareButton: {
+    backgroundColor: '#AC9C8D',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  shareButtonText: {
+    fontSize: 12,
+    color: '#EFE9E1',
+    fontFamily: 'Banshrift',
+    fontWeight: '600',
+  },
+  privacyToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#AC9C8D',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  privacyLabel: {
+    fontSize: 14,
+    color: '#72383D',
+    fontFamily: 'Banshrift',
+    fontWeight: '600',
+  },
+  privacyHint: {
+    fontSize: 10,
+    color: '#72383D',
+    fontFamily: 'Banshrift',
+    opacity: 0.7,
+  },
+  toggleButton: {
+    width: 50,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#ccc',
+    padding: 2,
+  },
+  toggleButtonActive: {
+    backgroundColor: '#72383D',
+  },
+  toggleKnob: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'white',
+  },
+  toggleKnobActive: {
+    transform: [{ translateX: 26 }],
+  },
   tabsContainer: {
     flexDirection: 'row',
-    backgroundColor: '#AC9C8D', // Новый цвет табов
+    backgroundColor: '#AC9C8D',
     paddingHorizontal: 16,
     paddingVertical: 8,
   },
@@ -293,25 +438,24 @@ const styles = StyleSheet.create({
     marginHorizontal: 2,
   },
   tabActive: {
-    backgroundColor: '#72383D', // Новый цвет активного таба
+    backgroundColor: '#72383D',
   },
   tabText: {
     fontSize: 12,
-    color: '#000000', // Черный цвет текста
+    color: '#000000',
     fontWeight: '500',
     textAlign: 'center',
-    fontFamily: 'Banshrift', // Новый шрифт
+    fontFamily: 'Banshrift',
   },
   tabTextActive: {
-    color: 'white', // Белый цвет активного текста
-    fontFamily: 'Banshrift', // Новый шрифт
+    color: 'white',
   },
   listContent: {
     padding: 16,
   },
   favoriteItem: {
     flexDirection: 'row',
-    backgroundColor: 'white', // Белый цвет карточек
+    backgroundColor: 'white',
     borderRadius: 12,
     padding: 12,
     marginBottom: 12,
@@ -325,7 +469,7 @@ const styles = StyleSheet.create({
   itemImage: {
     width: 60,
     height: 60,
-    backgroundColor: '#72383D', // Новый цвет фона изображения
+    backgroundColor: '#72383D',
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
@@ -339,7 +483,7 @@ const styles = StyleSheet.create({
   itemImageText: {
     fontSize: 20,
     color: 'white',
-    fontFamily: 'Banshrift', // Новый шрифт
+    fontFamily: 'Banshrift',
   },
   itemInfo: {
     flex: 1,
@@ -347,18 +491,18 @@ const styles = StyleSheet.create({
   itemName: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#72383D', // Новый цвет названия
+    color: '#72383D',
     marginBottom: 4,
-    fontFamily: 'Banshrift', // Новый шрифт
+    fontFamily: 'Banshrift',
   },
   statusContainer: {
     marginBottom: 4,
   },
   statusText: {
     fontSize: 12,
-    color: '#000000', // Черный цвет текста
+    color: '#000000',
     fontWeight: '500',
-    fontFamily: 'Banshrift', // Новый шрифт
+    fontFamily: 'Banshrift',
   },
   itemDetails: {
     flexDirection: 'row',
@@ -367,20 +511,20 @@ const styles = StyleSheet.create({
   },
   itemCategory: {
     fontSize: 14,
-    color: '#000000', // Черный цвет текста
-    fontFamily: 'Banshrift', // Новый шрифт
+    color: '#000000',
+    fontFamily: 'Banshrift',
   },
   itemRating: {
     fontSize: 14,
     color: '#ffa500',
     fontWeight: '600',
-    fontFamily: 'Banshrift', // Новый шрифт
+    fontFamily: 'Banshrift',
   },
   removeButton: {
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: '#72383D', // Новый цвет кнопки удаления
+    backgroundColor: '#72383D',
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 12,
@@ -389,7 +533,7 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 18,
     fontWeight: 'bold',
-    fontFamily: 'Banshrift', // Новый шрифт
+    fontFamily: 'Banshrift',
   },
   emptyState: {
     flex: 1,
@@ -404,16 +548,16 @@ const styles = StyleSheet.create({
   emptyStateTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#72383D', // Новый цвет заголовка
+    color: '#72383D',
     marginBottom: 8,
-    fontFamily: 'Banshrift', // Новый шрифт
+    fontFamily: 'Banshrift',
   },
   emptyStateText: {
     fontSize: 16,
-    color: '#000000', // Черный цвет текста
+    color: '#000000',
     textAlign: 'center',
     lineHeight: 22,
-    fontFamily: 'Banshrift', // Новый шрифт
+    fontFamily: 'Banshrift',
   },
   loadingContainer: {
     flex: 1,
@@ -421,7 +565,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   authButton: {
-    backgroundColor: '#72383D', // Новый цвет кнопки
+    backgroundColor: '#72383D',
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 8,
@@ -431,6 +575,6 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
-    fontFamily: 'Banshrift', // Новый шрифт
+    fontFamily: 'Banshrift',
   },
 });
