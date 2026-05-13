@@ -21,7 +21,7 @@ export default function FavoritesScreen() {
     if (!user) return;
     try {
       const userRecord = await pb.collection('users').getOne(user.id);
-      setIsPublic(userRecord.favorites_public === true);
+      setIsPublic(userRecord.is_favorites_public === true);
     } catch (error) {
       console.log('Ошибка загрузки настроек:', error);
     }
@@ -34,13 +34,13 @@ export default function FavoritesScreen() {
     try {
       const newStatus = !isPublic;
       await pb.collection('users').update(user.id, {
-        favorites_public: newStatus
+        is_favorites_public: newStatus
       });
       setIsPublic(newStatus);
       
       // Обновляем локальный объект user если есть функция updateUser
       if (updateUser) {
-        const updatedUser = { ...user, favorites_public: newStatus };
+        const updatedUser = { ...user, is_favorites_public: newStatus };
         updateUser(updatedUser);
       }
       
@@ -57,7 +57,6 @@ export default function FavoritesScreen() {
   const shareProfile = async () => {
     if (!user) return;
     
-    // Генерируем ссылку на профиль пользователя
     const profileUrl = `https://mom-dont-lose.app/userprofile/${user.id}`;
     const shareMessage = `🗺️ Посмотрите избранные места пользователя ${user.firstname || user.username || 'Мама не теряй'}!\n\n${profileUrl}`;
     
@@ -75,22 +74,10 @@ export default function FavoritesScreen() {
 
   const loadFavorites = async () => {
     try {
-      console.log('=== ОТЛАДКА ===');
-      console.log('ID пользователя из контекста:', user?.id);
-      console.log('Email пользователя:', user?.email);
-      
-      if (pb.authStore.model) {
-        console.log('ID пользователя из authStore:', pb.authStore.model.id);
-        console.log('Email пользователя из authStore:', pb.authStore.model.email);
-      }
-      
       const currentUserId = pb.authStore.model?.id;
       const result = await pb.collection('favorites').getList(1, 50, {
         filter: `user = "${currentUserId}"`
       });
-      
-      console.log('Найдено избранных записей:', result.items.length);
-      console.log('Записи:', result.items);
       
       const favoritesWithPlaces = await Promise.all(
         result.items.map(async (fav: any) => {
@@ -133,7 +120,6 @@ export default function FavoritesScreen() {
     try {
       await pb.collection('favorites').delete(favoriteId);
       setFavorites(favorites.filter(fav => fav.id !== favoriteId));
-      console.log('Удалено из избранного:', favoriteId);
     } catch (error) {
       console.error('Ошибка удаления из избранного:', error);
     }
@@ -177,10 +163,7 @@ export default function FavoritesScreen() {
   const renderFavoriteItem = ({ item }: { item: any }) => {
     const place = item.expand?.place;
     
-    if (!place) {
-      console.log('Place не найден для избранного:', item.id);
-      return null;
-    }
+    if (!place) return null;
 
     return (
       <TouchableOpacity 
@@ -237,7 +220,6 @@ export default function FavoritesScreen() {
     { id: 'favorite', name: 'Любимые', emoji: '❤️' },
   ];
 
-  // Если пользователь не авторизован
   if (!user && !isLoading) {
     return (
       <View style={styles.container}>
@@ -290,7 +272,6 @@ export default function FavoritesScreen() {
         </View>
       </View>
 
-      {/* Табы */}
       <View style={styles.tabsContainer}>
         {tabs.map(tab => (
           <TouchableOpacity
