@@ -1,7 +1,7 @@
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
-import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View, Modal, FlatList } from 'react-native';
+import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View, Modal, FlatList, RefreshControl } from 'react-native';
 import { useAuth } from './_layout';
 import NavigationMenu from './components/NavigationMenu';
 import { pb } from './utils/pb';
@@ -9,7 +9,7 @@ import { pb } from './utils/pb';
 interface Notification {
   id: string;
   user: string;
-  from_user: {
+  from_user: string | {
     id: string;
     username: string;
     firstname: string;
@@ -20,6 +20,14 @@ interface Notification {
   comment_id?: string;
   is_read: boolean;
   created: string;
+  expand?: {
+    from_user: {
+      id: string;
+      username: string;
+      firstname: string;
+      avatar?: string;
+    };
+  };
 }
 
 export default function ProfileScreen() {
@@ -32,41 +40,45 @@ export default function ProfileScreen() {
   const [notificationsModalVisible, setNotificationsModalVisible] = useState(false);
   const [selectedUserProfile, setSelectedUserProfile] = useState<any>(null);
   const [profileModalVisible, setProfileModalVisible] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Загрузка уведомлений
   useEffect(() => {
     if (user) {
       loadNotifications();
-      subscribeToNotifications();
     }
   }, [user]);
 
   const loadNotifications = async () => {
     if (!user) return;
-
+    
     try {
       const result = await pb.collection('notifications').getList(1, 50, {
         filter: `user = "${user.id}"`,
         expand: 'from_user',
         sort: '-created',
       });
+      console.log('📥 Загружено уведомлений:', result.items.length);
+      
+      // Выводим каждое уведомление для отладки
+      result.items.forEach((item: any, index: number) => {
+        console.log(`📋 Уведомление ${index + 1}:`, {
+          id: item.id,
+          from_user: item.from_user,
+          expand_from_user: item.expand?.from_user,
+          type: item.type
+        });
+      });
+      
       setNotifications(result.items as any);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Ошибка загрузки уведомлений:', error);
     }
   };
 
-  const subscribeToNotifications = () => {
-    if (!user) return;
-
-    pb.collection('notifications').subscribe(`user = "${user.id}"`, async (e) => {
-      if (e.action === 'create') {
-        const newNotification = await pb.collection('notifications').getOne(e.record.id, {
-          expand: 'from_user',
-        });
-        setNotifications(prev => [newNotification as any, ...prev]);
-      }
-    });
+  const refreshNotifications = async () => {
+    setRefreshing(true);
+    await loadNotifications();
+    setRefreshing(false);
   };
 
   const markAsRead = async (notificationId: string) => {
@@ -80,31 +92,88 @@ export default function ProfileScreen() {
     }
   };
 
-  const handleNotificationPress = (notification: Notification) => {
-    markAsRead(notification.id);
+  const getFromUserId = (notification: Notification): string | null => {
+    console.log('🔍 getFromUserId - проверка уведомления');
     
-    // Если уведомление от текущего пользователя
-    if (notification.from_user.id === user?.id) {
-      setProfileModalVisible(true);
-      setSelectedUserProfile(user);
-    } else {
-      // Загружаем профиль другого пользователя
-      loadUserProfile(notification.from_user.id);
+    if (notification.expand?.from_user?.id) {
+      console.log('✅ Нашли ID в expand.from_user.id:', notification.expand.from_user.id);
+      return notification.expand.from_user.id;
     }
+    if (typeof notification.from_user === 'object' && notification.from_user !== null && 'id' in notification.from_user) {
+      console.log('✅ Нашли ID в from_user.id:', notification.from_user.id);
+      return notification.from_user.id;
+    }
+    if (typeof notification.from_user === 'string') {
+      console.log('✅ from_user - строка:', notification.from_user);
+      return notification.from_user;
+    }
+    console.log('❌ Не удалось найти ID пользователя');
+    return null;
+  };
+
+  const getFromUserName = (notification: Notification): string => {
+    if (notification.expand?.from_user?.firstname) {
+      return notification.expand.from_user.firstname;
+    }
+    if (notification.expand?.from_user?.username) {
+      return notification.expand.from_user.username;
+    }
+    if (typeof notification.from_user === 'object' && notification.from_user !== null) {
+      return notification.from_user.firstname || notification.from_user.username || 'Пользователь';
+    }
+    return 'Пользователь';
+  };
+
+  const getFromUserAvatar = (notification: Notification): string | null => {
+    if (notification.expand?.from_user?.avatar) {
+      return notification.expand.from_user.avatar;
+    }
+    if (typeof notification.from_user === 'object' && notification.from_user !== null && notification.from_user.avatar) {
+      return notification.from_user.avatar;
+    }
+    return null;
+  };
+
+  const handleNotificationPress = async (notification: Notification) => {
+    await markAsRead(notification.id);
+    
+    const userId = getFromUserId(notification);
+    if (!userId) {
+      Alert.alert('Ошибка', 'Не удалось определить пользователя');
+      return;
+    }
+    
+    await loadUserProfile(userId);
   };
 
   const loadUserProfile = async (userId: string) => {
     try {
-      const userProfile = await pb.collection('users').getOne(userId);
+      console.log('📥 Загружаем профиль пользователя:', userId);
+      console.log('🔑 Текущий пользователь:', user?.id);
       
-      // Загружаем избранные места пользователя (если они публичные)
+      // Если пытаемся загрузить свой профиль
+      if (userId === user?.id) {
+        console.log('📌 Загружаем свой профиль');
+        setSelectedUserProfile(user);
+        setProfileModalVisible(true);
+        return;
+      }
+      
+      const userProfile = await pb.collection('users').getOne(userId);
+      console.log('✅ Профиль загружен:', userProfile.firstname || userProfile.username);
+      
       let favorites = [];
       if (userProfile.is_favorites_public) {
-        const favoritesResult = await pb.collection('favorites').getList(1, 100, {
-          filter: `user = "${userId}"`,
-          expand: 'place',
-        });
-        favorites = favoritesResult.items.map(item => item.expand?.place).filter(Boolean);
+        try {
+          const favoritesResult = await pb.collection('user_favorites').getList(1, 100, {
+            filter: `user = "${userId}"`,
+            expand: 'place',
+          });
+          favorites = favoritesResult.items.map(item => item.expand?.place).filter(Boolean);
+          console.log('📦 Загружено избранных мест:', favorites.length);
+        } catch (error) {
+          console.error('Ошибка загрузки избранных мест:', error);
+        }
       }
       
       setSelectedUserProfile({
@@ -112,9 +181,16 @@ export default function ProfileScreen() {
         favorites: favorites,
       });
       setProfileModalVisible(true);
-    } catch (error) {
-      console.error('Ошибка загрузки профиля:', error);
-      Alert.alert('Ошибка', 'Не удалось загрузить профиль пользователя');
+    } catch (error: any) {
+      console.error('❌ Ошибка загрузки профиля:', error);
+      console.error('Статус ошибки:', error.status);
+      console.error('Данные ошибки:', error.data);
+      
+      if (error.status === 404) {
+        Alert.alert('Ошибка', 'Пользователь не найден. Возможно, он был удален.');
+      } else {
+        Alert.alert('Ошибка', 'Не удалось загрузить профиль пользователя');
+      }
     }
   };
 
@@ -272,6 +348,15 @@ export default function ProfileScreen() {
     }
   };
 
+  const getAvatarUrl = (record: any, avatar: string) => {
+    if (!avatar) return null;
+    try {
+      return pb.files.getURL(record, avatar);
+    } catch (error) {
+      return null;
+    }
+  };
+
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
   return (
@@ -281,13 +366,18 @@ export default function ProfileScreen() {
           <ScrollView 
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={refreshNotifications} colors={['#72383D']} />
+            }
           >
-            {/* Header с кнопкой уведомлений */}
             <View style={styles.header}>
               <Text style={styles.headerUsername}>@{user.username || 'username'}</Text>
               <TouchableOpacity 
                 style={styles.notificationButton}
-                onPress={() => setNotificationsModalVisible(true)}
+                onPress={() => {
+                  refreshNotifications();
+                  setNotificationsModalVisible(true);
+                }}
               >
                 <Text style={styles.notificationIcon}>🔔</Text>
                 {unreadCount > 0 && (
@@ -298,7 +388,6 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Фото профиля и имя */}
             <View style={styles.profileRow}>
               <TouchableOpacity 
                 style={styles.photoContainer}
@@ -306,7 +395,7 @@ export default function ProfileScreen() {
                 disabled={isLoading}
               >
                 <Image 
-                  source={user.avatar ? { uri: pb.files.getUrl(user, user.avatar) } : require('../assets/images/zaglushka.jpg')}
+                  source={user.avatar ? { uri: getAvatarUrl(user, user.avatar) } : require('../assets/images/zaglushka.jpg')}
                   style={styles.profilePhoto}
                   resizeMode="cover"
                 />
@@ -326,7 +415,6 @@ export default function ProfileScreen() {
               </View>
             </View>
 
-            {/* Информация профиля - аккордеон */}
             <View style={styles.section}>
               <TouchableOpacity 
                 style={styles.sectionHeader}
@@ -361,14 +449,13 @@ export default function ProfileScreen() {
                   <View style={styles.infoRow}>
                     <Text style={styles.infoLabel}>Дата регистрации</Text>
                     <Text style={styles.infoValue}>
-                      {user.created ? new Date(user.created).toLocaleDateString('ru-RU') : '23.11.2025'}
+                      {user.created ? new Date(user.created).toLocaleDateString('ru-RU') : 'Дата не указана'}
                     </Text>
                   </View>
                 </View>
               )}
             </View>
 
-            {/* Действия - аккордеон */}
             <View style={styles.section}>
               <TouchableOpacity 
                 style={styles.sectionHeader}
@@ -420,7 +507,6 @@ export default function ProfileScreen() {
         </View>
       )}
 
-      {/* Модальное окно уведомлений */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -431,25 +517,34 @@ export default function ProfileScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Уведомления</Text>
-              <TouchableOpacity onPress={() => setNotificationsModalVisible(false)}>
-                <Text style={styles.closeButton}>✕</Text>
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', gap: 15 }}>
+                <TouchableOpacity onPress={refreshNotifications}>
+                  <Text style={{ fontSize: 20, color: '#72383D' }}>🔄</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setNotificationsModalVisible(false)}>
+                  <Text style={styles.closeButton}>✕</Text>
+                </TouchableOpacity>
+              </View>
             </View>
             <FlatList
               data={notifications}
               keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
+              renderItem={({ item }) => {
+                const userName = getFromUserName(item);
+                const userAvatar = getFromUserAvatar(item);
+                
+                return (
                 <TouchableOpacity
                   style={[styles.notificationItem, !item.is_read && styles.unreadNotification]}
                   onPress={() => handleNotificationPress(item)}
                 >
                   <Image
-                    source={item.from_user.avatar ? { uri: pb.files.getUrl(item.from_user, item.from_user.avatar) } : require('../assets/images/zaglushka.jpg')}
+                    source={userAvatar ? { uri: getAvatarUrl({ avatar: userAvatar }, userAvatar) } : require('../assets/images/zaglushka.jpg')}
                     style={styles.notificationAvatar}
                   />
                   <View style={styles.notificationContent}>
                     <Text style={styles.notificationText}>
-                      <Text style={styles.notificationUserName}>{item.from_user.firstname || item.from_user.username}</Text>
+                      <Text style={styles.notificationUserName}>{userName}</Text>
                       {' '}{getNotificationText(item)}
                     </Text>
                     <Text style={styles.notificationTime}>
@@ -457,7 +552,7 @@ export default function ProfileScreen() {
                     </Text>
                   </View>
                 </TouchableOpacity>
-              )}
+              )}}
               ListEmptyComponent={() => (
                 <Text style={styles.emptyText}>Нет уведомлений</Text>
               )}
@@ -466,7 +561,6 @@ export default function ProfileScreen() {
         </View>
       </Modal>
 
-      {/* Модальное окно профиля пользователя */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -485,7 +579,7 @@ export default function ProfileScreen() {
               <ScrollView>
                 <View style={styles.profileModalInfo}>
                   <Image
-                    source={selectedUserProfile.avatar ? { uri: pb.files.getUrl(selectedUserProfile, selectedUserProfile.avatar) } : require('../assets/images/zaglushka.jpg')}
+                    source={selectedUserProfile.avatar ? { uri: getAvatarUrl(selectedUserProfile, selectedUserProfile.avatar) } : require('../assets/images/zaglushka.jpg')}
                     style={styles.profileModalAvatar}
                   />
                   <Text style={styles.profileModalName}>{selectedUserProfile.firstname || selectedUserProfile.username}</Text>

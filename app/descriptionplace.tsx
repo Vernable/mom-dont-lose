@@ -141,7 +141,56 @@ export default function DescriptionPlace() {
   const [replyingToReview, setReplyingToReview] = useState<ReviewType | null>(null);
   const [replyText, setReplyText] = useState('');
 
+  const getTotalCommentsCount = (reviewsList: ReviewType[]): number => {
+    let count = reviewsList.length;
+    reviewsList.forEach(review => {
+      if (review.replies && review.replies.length > 0) {
+        count += review.replies.length;
+      }
+    });
+    return count;
+  };
+
   const avgUserRating = reviews.length ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length : 0;
+
+  // Функция создания уведомления с подробными логами
+  const createNotification = async (toUserId: string, fromUserId: string, type: string, reviewId?: string, commentId?: string) => {
+    console.log('🔔🔔🔔 createNotification ВЫЗВАНА! 🔔🔔🔔');
+    console.log('   toUserId:', toUserId);
+    console.log('   fromUserId:', fromUserId);
+    console.log('   type:', type);
+    console.log('   reviewId:', reviewId);
+    console.log('   commentId:', commentId);
+    
+    if (toUserId === fromUserId) {
+      console.log('⚠️ Уведомление самому себе - пропускаем');
+      return;
+    }
+    
+    if (!toUserId || !fromUserId) {
+      console.log('❌ Ошибка: toUserId или fromUserId пустые');
+      return;
+    }
+    
+    try {
+      const notificationData = {
+        user: toUserId,
+        from_user: fromUserId,
+        type: type,
+        review_id: reviewId || '',
+        comment_id: commentId || '',
+        is_read: false,
+      };
+      console.log('📤 Отправляем в PocketBase:', JSON.stringify(notificationData));
+      
+      const result = await pb.collection('notifications').create(notificationData);
+      console.log('✅✅✅ Уведомление УСПЕШНО создано! ID:', result.id);
+    } catch (error: any) {
+      console.error('❌❌❌ ОШИБКА создания уведомления:', error);
+      console.error('Статус ошибки:', error.status);
+      console.error('Данные ошибки:', error.data);
+    }
+  };
 
   const loadYandexRating = useCallback(async (yandexMapId: string) => {
     if (!yandexMapId) {
@@ -197,8 +246,10 @@ export default function DescriptionPlace() {
           };
         })
       );
+      
       const mainReviews = reviewsWithUsers.filter((r: any) => !r.parent_id) as any as ReviewType[];
       const replies = reviewsWithUsers.filter((r: any) => r.parent_id) as any as ReviewType[];
+      
       replies.forEach((reply: ReviewType) => {
         const parent = mainReviews.find((p: ReviewType) => p.id === reply.parent_id);
         if (parent) {
@@ -206,6 +257,7 @@ export default function DescriptionPlace() {
           parent.replies.push(reply);
         }
       });
+      
       setReviews(mainReviews);
     } catch (error: any) {
       console.error('Ошибка загрузки отзывов:', error);
@@ -230,12 +282,15 @@ export default function DescriptionPlace() {
       const alreadyLiked = liked_by.includes(user.id);
       const alreadyDisliked = disliked_by.includes(user.id);
       
+      let wasLiked = false;
+      
       if (alreadyLiked) {
         liked_by = liked_by.filter((id: string) => id !== user.id);
         likes = likes - 1;
       } else {
         liked_by.push(user.id);
         likes = likes + 1;
+        wasLiked = true;
         if (alreadyDisliked) {
           disliked_by = disliked_by.filter((id: string) => id !== user.id);
           dislikes = dislikes - 1;
@@ -251,6 +306,25 @@ export default function DescriptionPlace() {
         liked_by: liked_by,
         disliked_by: disliked_by
       });
+      
+      console.log('📊 Лайк обработан, wasLiked =', wasLiked);
+      console.log('📊 review.user =', review.user);
+      console.log('📊 user.id =', user.id);
+      console.log('📊 review.parent_id =', review.parent_id);
+      
+      if (wasLiked) {
+        const notificationType = review.parent_id ? 'like_comment' : 'like_review';
+        console.log('🔔 ДОЛЖНЫ отправить уведомление типа:', notificationType);
+        await createNotification(
+          review.user, 
+          user.id, 
+          notificationType, 
+          review.parent_id ? undefined : review.id, 
+          review.parent_id ? review.id : undefined
+        );
+      } else {
+        console.log('⚠️ Лайк был снят, уведомление не отправляем');
+      }
       
       setReviews(prevReviews => {
         const updateRecursive = (items: ReviewType[]): ReviewType[] => {
@@ -364,7 +438,7 @@ export default function DescriptionPlace() {
       return;
     }
     try {
-      await pb.collection('reviews').create({
+      const newReply = await pb.collection('reviews').create({
         user: user.id,
         place: params.id,
         comment: replyText,
@@ -372,12 +446,24 @@ export default function DescriptionPlace() {
         parent_id: replyingToReview?.id,
         reply_to_user_name: replyingToReview?.userName,
       });
+      
+      console.log('📝 Ответ создан, replyingToReview =', replyingToReview);
+      
+      if (replyingToReview) {
+        console.log('🔔 ДОЛЖНЫ отправить уведомление об ответе');
+        console.log('📤 Кому:', replyingToReview.user, 'От кого:', user.id);
+        await createNotification(replyingToReview.user, user.id, 'reply_review', replyingToReview.id, undefined);
+      } else {
+        console.log('⚠️ replyingToReview = null, уведомление не отправляем');
+      }
+      
       Alert.alert('Успех', 'Ответ добавлен');
       setReplyModalVisible(false);
       setReplyText('');
       setReplyingToReview(null);
       await loadReviews();
     } catch (error: any) {
+      console.error('Ошибка при ответе:', error);
       Alert.alert('Ошибка', error.message || 'Не удалось отправить ответ');
     }
   };
@@ -761,12 +847,14 @@ export default function DescriptionPlace() {
     </View>
   )};
 
-  const renderReviewsSection = () => (
+  const renderReviewsSection = () => {
+    const totalComments = getTotalCommentsCount(reviews);
+    return (
     <View style={styles.reviewsSection}>
       <TouchableOpacity style={styles.reviewsHeader} onPress={() => setReviewsVisible(!reviewsVisible)}>
         <View style={styles.reviewsHeaderLeft}>
           <Text style={styles.sectionTitle}>📝 Отзывы</Text>
-          <Text style={styles.reviewsCount}>{reviews.length}</Text>
+          <Text style={styles.reviewsCount}>{totalComments}</Text>
         </View>
         <Text style={styles.reviewsToggleIcon}>{reviewsVisible ? '▼' : '▶'}</Text>
       </TouchableOpacity>
@@ -799,7 +887,7 @@ export default function DescriptionPlace() {
         </>
       )}
     </View>
-  );
+  )};
 
   const renderReviewModal = () => (
     <Modal visible={showReviewModal} transparent animationType="slide" onRequestClose={resetReviewModal}>

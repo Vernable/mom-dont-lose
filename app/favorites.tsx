@@ -1,11 +1,9 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Dimensions, FlatList, Image, Share, StyleSheet, Text, TouchableOpacity, View, Switch, Alert } from 'react-native';
+import { FlatList, Image, Share, StyleSheet, Text, TouchableOpacity, View, Switch, Alert, ActivityIndicator, ScrollView } from 'react-native';
 import { useAuth } from './_layout';
 import NavigationMenu from './components/NavigationMenu';
 import { pb } from './utils/pb';
-
-const { width: screenWidth } = Dimensions.get('window');
 
 export default function FavoritesScreen() {
   const router = useRouter();
@@ -15,58 +13,50 @@ export default function FavoritesScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isPublic, setIsPublic] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [favoriteRecordId, setFavoriteRecordId] = useState<string | null>(null);
 
-  // Загрузка настроек пользователя
   const loadUserSettings = async () => {
     if (!user) return;
     try {
-      const userRecord = await pb.collection('users').getOne(user.id);
-      console.log('Загружен пользователь:', userRecord);
-      console.log('Текущее значение is_public:', userRecord.is_public);
+      const result = await pb.collection('favorites').getList(1, 1, {
+        filter: `user = "${user.id}" && place = null`
+      });
       
-      const publicStatus = userRecord.is_public === true;
-      setIsPublic(publicStatus);
-      console.log('Установлен статус isPublic:', publicStatus);
+      if (result.items.length > 0) {
+        const favRecord = result.items[0];
+        setFavoriteRecordId(favRecord.id);
+        const publicStatus = favRecord.is_public === true;
+        setIsPublic(publicStatus);
+      } else {
+        const newRecord = await pb.collection('favorites').create({
+          user: user.id,
+          is_public: false
+        });
+        setFavoriteRecordId(newRecord.id);
+        setIsPublic(false);
+      }
     } catch (error) {
       console.log('Ошибка загрузки настроек:', error);
     }
   };
 
-  // Сохранение настроек публичности
   const togglePublicStatus = async () => {
-    if (!user || isUpdating) return;
+    if (!user || isUpdating || !favoriteRecordId) return;
     setIsUpdating(true);
     
     const newStatus = !isPublic;
-    console.log('=== ПЕРЕКЛЮЧЕНИЕ СТАТУСА ===');
-    console.log('Текущий статус isPublic:', isPublic);
-    console.log('Новый статус newStatus:', newStatus);
-    console.log('ID пользователя:', user.id);
     
     try {
-      const updatedUser = await pb.collection('users').update(user.id, {
+      const updatedRecord = await pb.collection('favorites').update(favoriteRecordId, {
         is_public: newStatus
       });
       
-      console.log('Ответ от сервера:', updatedUser);
-      console.log('Новое значение is_public:', updatedUser.is_public);
+      setIsPublic(newStatus);
       
-      if (updatedUser.is_public === newStatus) {
-        setIsPublic(newStatus);
-        console.log('✅ Статус успешно обновлен на', newStatus);
-        
-        if (updateUser) {
-          const updatedUserData = { ...user, is_public: newStatus };
-          updateUser(updatedUserData);
-        }
-        
-        Alert.alert(
-          '✅ Настройки обновлены',
-          newStatus ? '🌍 Ваш список избранного теперь виден другим' : '🔒 Ваш список избранного теперь приватный'
-        );
-      } else {
-        Alert.alert('❌ Ошибка', 'Не удалось изменить статус');
-      }
+      Alert.alert(
+        '✅ Настройки обновлены',
+        newStatus ? '🌍 Ваш список избранного теперь виден другим' : '🔒 Ваш список избранного теперь приватный'
+      );
     } catch (error: any) {
       console.error('❌ Ошибка:', error);
       Alert.alert('❌ Ошибка', error.message || 'Не удалось изменить статус');
@@ -75,7 +65,6 @@ export default function FavoritesScreen() {
     }
   };
 
-  // Поделиться ссылкой на профиль
   const shareProfile = async () => {
     if (!user) return;
     
@@ -95,36 +84,26 @@ export default function FavoritesScreen() {
   };
 
   const loadFavorites = async () => {
+    if (!user) return;
     try {
-      console.log('=== ЗАГРУЗКА ИЗБРАННОГО ===');
-      console.log('ID пользователя:', user?.id);
+      setIsLoading(true);
       
-      const currentUserId = pb.authStore.model?.id;
-      const result = await pb.collection('favorites').getList(1, 50, {
-        filter: `user = "${currentUserId}"`
+      const result = await pb.collection('favorites').getList(1, 100, {
+        filter: `user = "${user.id}" && place != null`,
+        expand: 'place'
       });
       
-      console.log('Найдено записей:', result.items.length);
-      
-      const favoritesWithPlaces = await Promise.all(
-        result.items.map(async (fav: any) => {
-          try {
-            const place = await pb.collection('places').getOne(fav.place, {
-              expand: 'category'
-            });
-            return {
-              ...fav,
-              expand: { place: place }
-            };
-          } catch (error) {
-            console.error('Ошибка загрузки места:', fav.place, error);
-            return fav;
+      const favoritesWithPlaces = result.items
+        .filter((item: any) => item.place && item.expand?.place)
+        .map((item: any) => ({
+          ...item,
+          expand: {
+            place: item.expand?.place
           }
-        })
-      );
+        }));
       
       setFavorites(favoritesWithPlaces);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Ошибка загрузки избранного:', error);
     } finally {
       setIsLoading(false);
@@ -151,6 +130,7 @@ export default function FavoritesScreen() {
           try {
             await pb.collection('favorites').delete(favoriteId);
             setFavorites(favorites.filter(fav => fav.id !== favoriteId));
+            Alert.alert('Успех', 'Место удалено из избранного');
           } catch (error) {
             Alert.alert('Ошибка', 'Не удалось удалить');
           }
@@ -194,12 +174,15 @@ export default function FavoritesScreen() {
     return favorites.filter(fav => fav.status === status).length;
   };
 
-  const renderFavoriteItem = ({ item }: { item: any }) => {
+  // Простой рендер для проверки
+  const renderFavoriteItem = ({ item, index }: { item: any, index: number }) => {
     const place = item.expand?.place;
+    
     if (!place) return null;
 
     return (
       <TouchableOpacity 
+        key={item.id}
         style={styles.favoriteItem}
         onPress={() => handlePlacePress(place.id)}
         activeOpacity={0.7}
@@ -304,20 +287,25 @@ export default function FavoritesScreen() {
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#72383D" />
           <Text style={styles.loadingText}>Загрузка избранных...</Text>
         </View>
       ) : filteredFavorites.length > 0 ? (
-        <FlatList data={filteredFavorites} renderItem={renderFavoriteItem} keyExtractor={item => item.id} contentContainerStyle={styles.listContent} />
+        <FlatList 
+          data={filteredFavorites} 
+          renderItem={renderFavoriteItem} 
+          keyExtractor={(item, index) => item.id || index.toString()} 
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          initialNumToRender={10}
+          removeClippedSubviews={false}
+        />
       ) : (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyStateEmoji}>{activeTab === 'visited' ? '✅' : activeTab === 'want_to_visit' ? '📅' : activeTab === 'favorite' ? '❤️' : '⭐'}</Text>
-          <Text style={styles.emptyStateTitle}>
-            {activeTab === 'visited' ? 'Нет посещенных мест' : activeTab === 'want_to_visit' ? 'Нет мест для посещения' : activeTab === 'favorite' ? 'Нет любимых мест' : 'Нет избранных мест'}
-          </Text>
-          <Text style={styles.emptyStateText}>
-            {activeTab === 'visited' ? 'Отмечайте посещенные места в карточке места' : activeTab === 'want_to_visit' ? 'Добавляйте места в список желаний' : activeTab === 'favorite' ? 'Добавляйте места в любимые' : 'Добавляйте места в избранное, чтобы вернуться к ним позже'}
-          </Text>
-        </View>
+        <ScrollView contentContainerStyle={styles.emptyState}>
+          <Text style={styles.emptyStateEmoji}>⭐</Text>
+          <Text style={styles.emptyStateTitle}>Нет избранных мест</Text>
+          <Text style={styles.emptyStateText}>Добавляйте места в избранное, чтобы вернуться к ним позже</Text>
+        </ScrollView>
       )}
 
       <NavigationMenu />
@@ -344,8 +332,21 @@ const styles = StyleSheet.create({
   tabActive: { backgroundColor: '#72383D' },
   tabText: { fontSize: 12, color: '#000000', fontWeight: '500', textAlign: 'center', fontFamily: 'Banshrift' },
   tabTextActive: { color: '#FFFFFF' },
-  listContent: { padding: 16 },
-  favoriteItem: { flexDirection: 'row', backgroundColor: '#FFFFFF', borderRadius: 12, padding: 12, marginBottom: 12, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
+  listContent: { padding: 16, paddingBottom: 100 },
+  favoriteItem: { 
+    flexDirection: 'row', 
+    backgroundColor: '#FFFFFF', 
+    borderRadius: 12, 
+    padding: 12, 
+    marginBottom: 12, 
+    alignItems: 'center', 
+    shadowColor: '#000', 
+    shadowOffset: { width: 0, height: 2 }, 
+    shadowOpacity: 0.1, 
+    shadowRadius: 4, 
+    elevation: 3,
+    minHeight: 90,
+  },
   itemImage: { width: 70, height: 70, backgroundColor: '#72383D', borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginRight: 12, overflow: 'hidden' },
   photo: { width: '100%', height: '100%' },
   itemImageText: { fontSize: 28, color: '#FFFFFF', fontFamily: 'Banshrift' },
@@ -363,7 +364,7 @@ const styles = StyleSheet.create({
   emptyStateTitle: { fontSize: 20, fontWeight: 'bold', color: '#72383D', marginBottom: 8, fontFamily: 'Banshrift', textAlign: 'center' },
   emptyStateText: { fontSize: 14, color: '#666666', textAlign: 'center', lineHeight: 20, fontFamily: 'Banshrift' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { fontSize: 16, color: '#72383D', fontFamily: 'Banshrift' },
+  loadingText: { marginTop: 12, fontSize: 16, color: '#72383D', fontFamily: 'Banshrift' },
   authButton: { backgroundColor: '#72383D', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12, marginTop: 20 },
   authButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold', fontFamily: 'Banshrift' },
 });
