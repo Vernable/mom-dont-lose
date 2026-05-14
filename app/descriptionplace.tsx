@@ -23,7 +23,31 @@ import * as ImagePicker from 'expo-image-picker';
 
 const { width: screenWidth } = Dimensions.get('window');
 
-// ========== КРУПНЫЕ ЗОЛОТЫЕ ЗВЁЗДЫ ДЛЯ РЕЙТИНГА ПРИЛОЖЕНИЯ ==========
+interface ReviewType {
+  id: string;
+  collectionId: string;
+  collectionName: string;
+  created: string;
+  updated: string;
+  user: string;
+  place: string;
+  rating: number;
+  comment: string;
+  photos?: string[];
+  likes?: number;
+  dislikes?: number;
+  liked_by?: string[];
+  disliked_by?: string[];
+  parent_id?: string;
+  reply_to_user_name?: string;
+  datecreate?: string;
+  userName?: string;
+  userAvatar?: string | null;
+  hasUserLiked?: boolean;
+  hasUserDisliked?: boolean;
+  replies?: ReviewType[];
+}
+
 const AppRatingStars = ({ rating, size = 36 }: { rating: number; size?: number }) => {
   const rounded = Math.round(rating);
   return (
@@ -47,7 +71,6 @@ const AppRatingStars = ({ rating, size = 36 }: { rating: number; size?: number }
   );
 };
 
-// Обычный звёздный рейтинг (для отзывов и модалок) - НОВЫЙ СТИЛЬ
 const StarRating = ({ rating, onRatingChange, size = 20, interactive = true }: any) => {
   return (
     <View style={{ flexDirection: 'row', gap: 6 }}>
@@ -104,7 +127,7 @@ export default function DescriptionPlace() {
   const [ratingError, setRatingError] = useState<string | null>(null);
   const [showPriceInfoModal, setShowPriceInfoModal] = useState(false);
 
-  const [reviews, setReviews] = useState<any[]>([]);
+  const [reviews, setReviews] = useState<ReviewType[]>([]);
   const [reviewsVisible, setReviewsVisible] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [editingReview, setEditingReview] = useState<any>(null);
@@ -115,7 +138,7 @@ export default function DescriptionPlace() {
   const [likingReviewId, setLikingReviewId] = useState<string | null>(null);
 
   const [replyModalVisible, setReplyModalVisible] = useState(false);
-  const [replyingToReview, setReplyingToReview] = useState<any>(null);
+  const [replyingToReview, setReplyingToReview] = useState<ReviewType | null>(null);
   const [replyText, setReplyText] = useState('');
 
   const avgUserRating = reviews.length ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length : 0;
@@ -150,6 +173,7 @@ export default function DescriptionPlace() {
     try {
       const result = await pb.collection('reviews').getList(1, 100);
       const placeReviews = result.items.filter((review) => review.place === params.id);
+      
       const reviewsWithUsers = await Promise.all(
         placeReviews.map(async (review) => {
           let userData = null;
@@ -169,14 +193,18 @@ export default function DescriptionPlace() {
             hasUserLiked: review.liked_by?.includes(user?.id) || false,
             hasUserDisliked: review.disliked_by?.includes(user?.id) || false,
             replies: [],
+            parent_id: review.parent_id || undefined,
           };
         })
       );
-      const mainReviews = reviewsWithUsers.filter(r => !r.parent_id);
-      const replies = reviewsWithUsers.filter(r => r.parent_id);
-      replies.forEach(reply => {
-        const parent = mainReviews.find(p => p.id === reply.parent_id);
-        if (parent) parent.replies.push(reply);
+      const mainReviews = reviewsWithUsers.filter((r: any) => !r.parent_id) as any as ReviewType[];
+      const replies = reviewsWithUsers.filter((r: any) => r.parent_id) as any as ReviewType[];
+      replies.forEach((reply: ReviewType) => {
+        const parent = mainReviews.find((p: ReviewType) => p.id === reply.parent_id);
+        if (parent) {
+          if (!parent.replies) parent.replies = [];
+          parent.replies.push(reply);
+        }
       });
       setReviews(mainReviews);
     } catch (error: any) {
@@ -184,7 +212,7 @@ export default function DescriptionPlace() {
     }
   }, [params.id, user?.id]);
 
-  const handleLike = async (review: any) => {
+  const handleLike = async (review: ReviewType) => {
     if (!user) {
       Alert.alert('Авторизация', 'Войдите чтобы оценить отзыв');
       return;
@@ -192,32 +220,70 @@ export default function DescriptionPlace() {
     if (likingReviewId) return;
     setLikingReviewId(review.id);
     try {
-      let liked_by = review.liked_by || [];
-      let disliked_by = review.disliked_by || [];
-      let likes = review.likes || 0;
-      let dislikes = review.dislikes || 0;
-      if (liked_by.includes(user.id)) {
+      const current = await pb.collection('reviews').getOne(review.id);
+      
+      let liked_by = current.liked_by || [];
+      let disliked_by = current.disliked_by || [];
+      let likes = current.likes || 0;
+      let dislikes = current.dislikes || 0;
+      
+      const alreadyLiked = liked_by.includes(user.id);
+      const alreadyDisliked = disliked_by.includes(user.id);
+      
+      if (alreadyLiked) {
         liked_by = liked_by.filter((id: string) => id !== user.id);
-        likes--;
+        likes = likes - 1;
       } else {
         liked_by.push(user.id);
-        likes++;
-        if (disliked_by.includes(user.id)) {
+        likes = likes + 1;
+        if (alreadyDisliked) {
           disliked_by = disliked_by.filter((id: string) => id !== user.id);
-          dislikes--;
+          dislikes = dislikes - 1;
         }
       }
-      await pb.collection('reviews').update(review.id, { likes, dislikes, liked_by, disliked_by });
-      const updated = { ...review, likes, dislikes, liked_by, disliked_by, hasUserLiked: liked_by.includes(user.id), hasUserDisliked: disliked_by.includes(user.id) };
-      setReviews(prev => prev.map(r => r.id === review.id ? updated : r));
-    } catch (error) {
-      console.error(error);
+      
+      if (likes < 0) likes = 0;
+      if (dislikes < 0) dislikes = 0;
+      
+      await pb.collection('reviews').update(review.id, {
+        likes: likes,
+        dislikes: dislikes,
+        liked_by: liked_by,
+        disliked_by: disliked_by
+      });
+      
+      setReviews(prevReviews => {
+        const updateRecursive = (items: ReviewType[]): ReviewType[] => {
+          return items.map(item => {
+            if (item.id === review.id) {
+              return {
+                ...item,
+                likes: likes,
+                dislikes: dislikes,
+                liked_by: liked_by,
+                disliked_by: disliked_by,
+                hasUserLiked: liked_by.includes(user.id),
+                hasUserDisliked: disliked_by.includes(user.id)
+              };
+            }
+            if (item.replies && item.replies.length > 0) {
+              return { ...item, replies: updateRecursive(item.replies) };
+            }
+            return item;
+          });
+        };
+        return updateRecursive(prevReviews);
+      });
+      
+    } catch (error: any) {
+      console.error('Ошибка:', error);
+      Alert.alert('Ошибка', error.message || 'Не удалось поставить оценку');
     } finally {
       setLikingReviewId(null);
     }
   };
 
-  const handleDislike = async (review: any) => {
+  const handleDislike = async (review: ReviewType) => {
     if (!user) {
       Alert.alert('Авторизация', 'Войдите чтобы оценить отзыв');
       return;
@@ -225,26 +291,64 @@ export default function DescriptionPlace() {
     if (likingReviewId) return;
     setLikingReviewId(review.id);
     try {
-      let liked_by = review.liked_by || [];
-      let disliked_by = review.disliked_by || [];
-      let likes = review.likes || 0;
-      let dislikes = review.dislikes || 0;
-      if (disliked_by.includes(user.id)) {
+      const current = await pb.collection('reviews').getOne(review.id);
+      
+      let liked_by = current.liked_by || [];
+      let disliked_by = current.disliked_by || [];
+      let likes = current.likes || 0;
+      let dislikes = current.dislikes || 0;
+      
+      const alreadyLiked = liked_by.includes(user.id);
+      const alreadyDisliked = disliked_by.includes(user.id);
+      
+      if (alreadyDisliked) {
         disliked_by = disliked_by.filter((id: string) => id !== user.id);
-        dislikes--;
+        dislikes = dislikes - 1;
       } else {
         disliked_by.push(user.id);
-        dislikes++;
-        if (liked_by.includes(user.id)) {
+        dislikes = dislikes + 1;
+        if (alreadyLiked) {
           liked_by = liked_by.filter((id: string) => id !== user.id);
-          likes--;
+          likes = likes - 1;
         }
       }
-      await pb.collection('reviews').update(review.id, { likes, dislikes, liked_by, disliked_by });
-      const updated = { ...review, likes, dislikes, liked_by, disliked_by, hasUserLiked: liked_by.includes(user.id), hasUserDisliked: disliked_by.includes(user.id) };
-      setReviews(prev => prev.map(r => r.id === review.id ? updated : r));
-    } catch (error) {
-      console.error(error);
+      
+      if (likes < 0) likes = 0;
+      if (dislikes < 0) dislikes = 0;
+      
+      await pb.collection('reviews').update(review.id, {
+        likes: likes,
+        dislikes: dislikes,
+        liked_by: liked_by,
+        disliked_by: disliked_by
+      });
+      
+      setReviews(prevReviews => {
+        const updateRecursive = (items: ReviewType[]): ReviewType[] => {
+          return items.map(item => {
+            if (item.id === review.id) {
+              return {
+                ...item,
+                likes: likes,
+                dislikes: dislikes,
+                liked_by: liked_by,
+                disliked_by: disliked_by,
+                hasUserLiked: liked_by.includes(user.id),
+                hasUserDisliked: disliked_by.includes(user.id)
+              };
+            }
+            if (item.replies && item.replies.length > 0) {
+              return { ...item, replies: updateRecursive(item.replies) };
+            }
+            return item;
+          });
+        };
+        return updateRecursive(prevReviews);
+      });
+      
+    } catch (error: any) {
+      console.error('Ошибка:', error);
+      Alert.alert('Ошибка', error.message || 'Не удалось поставить оценку');
     } finally {
       setLikingReviewId(null);
     }
@@ -265,8 +369,8 @@ export default function DescriptionPlace() {
         place: params.id,
         comment: replyText,
         rating: 0,
-        parent_id: replyingToReview.id,
-        reply_to_user_name: replyingToReview.userName,
+        parent_id: replyingToReview?.id,
+        reply_to_user_name: replyingToReview?.userName,
       });
       Alert.alert('Успех', 'Ответ добавлен');
       setReplyModalVisible(false);
@@ -321,6 +425,10 @@ export default function DescriptionPlace() {
           place: params.id,
           rating: newReviewRating,
           comment: newReviewComment,
+          likes: 0,
+          dislikes: 0,
+          liked_by: [],
+          disliked_by: [],
         });
         Alert.alert('Успех', 'Отзыв добавлен');
       }
@@ -341,7 +449,7 @@ export default function DescriptionPlace() {
     setNewReviewPhotos([]);
   };
 
-  const editReview = (review: any) => {
+  const editReview = (review: ReviewType) => {
     setEditingReview(review);
     setNewReviewRating(review.rating);
     setNewReviewComment(review.comment);
@@ -557,7 +665,11 @@ export default function DescriptionPlace() {
     </TouchableOpacity>
   );
 
-  const renderReviewItem = (item: any, isReply = false) => (
+  const renderReviewItem = (item: ReviewType, isReply = false) => {
+    const likesCount = item.likes || 0;
+    const dislikesCount = item.dislikes || 0;
+    
+    return (
     <View key={item.id} style={[styles.reviewItem, isReply && styles.replyItem]}>
       <View style={styles.reviewHeader}>
         <View style={styles.reviewUserInfo}>
@@ -600,7 +712,7 @@ export default function DescriptionPlace() {
             disabled={likingReviewId === item.id}
           >
             <Text style={[styles.likeButtonText, item.hasUserLiked && styles.likeButtonActive]}>
-              👍 {item.likes || 0}
+              👍 {likesCount}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -609,10 +721,10 @@ export default function DescriptionPlace() {
             disabled={likingReviewId === item.id}
           >
             <Text style={[styles.likeButtonText, item.hasUserDisliked && styles.dislikeButtonActive]}>
-              👎 {item.dislikes || 0}
+              👎 {dislikesCount}
             </Text>
           </TouchableOpacity>
-          {!isReply && user && (
+          {user && (
             <TouchableOpacity
               style={styles.replyButton}
               onPress={() => {
@@ -626,18 +738,28 @@ export default function DescriptionPlace() {
           )}
         </View>
         <Text style={styles.reviewDate}>
-          {item.createdate
-            ? new Date(item.createdate).toLocaleDateString('ru-RU')
-            : new Date(item.created).toLocaleDateString('ru-RU')}
+          {item.datecreate
+            ? new Date(item.datecreate).toLocaleDateString('ru-RU', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+              })
+            : item.created
+            ? new Date(item.created).toLocaleDateString('ru-RU', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+              })
+            : 'Дата не указана'}
         </Text>
       </View>
       {!isReply && item.replies && item.replies.length > 0 && (
         <View style={styles.repliesContainer}>
-          {item.replies.map((reply: any) => renderReviewItem(reply, true))}
+          {item.replies.map((reply: ReviewType) => renderReviewItem(reply, true))}
         </View>
       )}
     </View>
-  );
+  )};
 
   const renderReviewsSection = () => (
     <View style={styles.reviewsSection}>
@@ -854,7 +976,6 @@ export default function DescriptionPlace() {
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {/* Фотогалерея */}
         <View style={styles.photosSection}>
           {place.photos && place.photos.length > 0 ? (
             <>
@@ -887,7 +1008,6 @@ export default function DescriptionPlace() {
           )}
         </View>
 
-        {/* ⭐ КРУПНЫЕ ЗОЛОТЫЕ ЗВЁЗДЫ РЕЙТИНГА ПРИЛОЖЕНИЯ */}
         {reviews.length > 0 && (
           <View style={styles.userRatingRow}>
             <AppRatingStars rating={avgUserRating} size={36} />
@@ -1074,7 +1194,6 @@ const styles = StyleSheet.create({
   reviewsSection: { backgroundColor: 'white', padding: 16, marginTop: 8 },
   reviewsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   reviewsHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  // ИСПРАВЛЕН СТИЛЬ: УБРАЛ ФОН И СКРУГЛЕНИЕ, ПРОСТО ЖИРНЫЙ ТЕКСТ
   reviewsCount: { 
     color: '#72383D', 
     fontSize: 16, 
@@ -1086,7 +1205,12 @@ const styles = StyleSheet.create({
   noReviewsContainer: { backgroundColor: '#f8f9fa', padding: 20, borderRadius: 12, alignItems: 'center', marginBottom: 16 },
   noReviewsText: { fontSize: 14, color: '#666', textAlign: 'center', fontFamily: 'Banshrift' },
   reviewItem: { backgroundColor: '#f8f9fa', padding: 12, borderRadius: 12, marginBottom: 12 },
-  replyItem: { marginLeft: 40, backgroundColor: '#efefef', marginTop: 6, marginBottom: 6 },
+  replyItem: { 
+    marginLeft: 20, 
+    backgroundColor: '#efefef', 
+    marginTop: 6, 
+    marginBottom: 6,
+  },
   replyToLabel: { fontSize: 12, color: '#72383D', marginBottom: 4, fontFamily: 'Banshrift', fontWeight: 'bold' },
   reviewHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   reviewUserInfo: { flexDirection: 'row', alignItems: 'center', gap: 10 },
@@ -1097,15 +1221,27 @@ const styles = StyleSheet.create({
   reviewComment: { fontSize: 14, color: '#000000', lineHeight: 20, fontFamily: 'Banshrift', marginBottom: 8 },
   reviewPhotosContainer: { flexDirection: 'row', marginBottom: 8 },
   reviewPhoto: { width: 60, height: 60, borderRadius: 8, marginRight: 8 },
-  reviewFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
-  reviewLikes: { flexDirection: 'row', gap: 16 },
+  reviewFooter: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    marginTop: 8,
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  reviewLikes: { flexDirection: 'row', gap: 16, alignItems: 'center' },
   likeButton: { paddingVertical: 4, paddingHorizontal: 8, backgroundColor: '#e0e0e0', borderRadius: 20 },
   likeButtonText: { fontSize: 12, fontFamily: 'Banshrift' },
   likeButtonActive: { color: '#4caf50', fontWeight: 'bold' },
   dislikeButtonActive: { color: '#f44336', fontWeight: 'bold' },
   replyButton: { paddingVertical: 4, paddingHorizontal: 8, backgroundColor: '#AC9C8D', borderRadius: 20 },
   replyButtonText: { fontSize: 12, color: 'white', fontFamily: 'Banshrift' },
-  reviewDate: { fontSize: 11, color: '#999', fontFamily: 'Banshrift' },
+  reviewDate: { 
+    fontSize: 11, 
+    color: '#999', 
+    fontFamily: 'Banshrift',
+    textAlign: 'right',
+  },
   repliesContainer: { marginTop: 8, borderLeftWidth: 2, borderLeftColor: '#ddd', paddingLeft: 8 },
   addReviewButton: { backgroundColor: '#AC9C8D', paddingVertical: 12, borderRadius: 10, alignItems: 'center', marginTop: 8 },
   addReviewButtonText: { fontSize: 16, color: 'white', fontWeight: '600', fontFamily: 'Banshrift' },
