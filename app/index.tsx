@@ -8,7 +8,9 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
+  Linking,
+  Alert
 } from 'react-native';
 import { useAuth } from './_layout';
 import NavigationMenu from './components/NavigationMenu';
@@ -29,6 +31,30 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [ratings, setRatings] = useState<Record<string, { rating: number, reviews: number }>>({});
 
+  // Функция поиска в Яндекс.Картах
+  const searchInYandexMaps = () => {
+    if (!searchQuery.trim()) return;
+    
+    const query = encodeURIComponent(searchQuery.trim());
+    const url = `https://yandex.ru/maps/?text=${query}`;
+    
+    Alert.alert(
+      'Поиск в Яндекс.Картах',
+      `Перейти к поиску "${searchQuery}" на Яндекс.Картах?`,
+      [
+        { text: 'Отмена', style: 'cancel' },
+        { 
+          text: 'Перейти', 
+          onPress: () => {
+            Linking.openURL(url).catch(() => 
+              Alert.alert('Ошибка', 'Не удалось открыть Яндекс.Карты')
+            );
+          }
+        }
+      ]
+    );
+  };
+
   // Функция загрузки рейтинга из Яндекса
   const loadYandexRating = useCallback(async (yandexMapId: string, placeId: string) => {
     if (!yandexMapId) {
@@ -43,13 +69,11 @@ export default function HomeScreen() {
       console.log(`📊 Результат рейтинга для ${placeId}:`, ratingData);
       
       if (ratingData) {
-        // Сохраняем рейтинг в состоянии
         setRatings(prev => ({
           ...prev,
           [placeId]: ratingData
         }));
         
-        // Обновляем в PocketBase (опционально)
         try {
           await pb.collection('places').update(placeId, {
             external_rating: ratingData.rating.toFixed(1)
@@ -70,12 +94,10 @@ export default function HomeScreen() {
     }
   }, []);
 
-  // Загрузка рейтингов для всех мест с yandex_map_id
   const loadAllRatings = useCallback(async (places: any[]) => {
     const ratingPromises = places
       .filter(place => place.yandex_map_id)
       .map(async (place) => {
-        // Если уже есть external_rating в БД, используем его
         if (place.external_rating) {
           try {
             const rating = parseFloat(place.external_rating);
@@ -91,7 +113,6 @@ export default function HomeScreen() {
           }
         }
         
-        // Иначе загружаем из Яндекса
         return loadYandexRating(place.yandex_map_id, place.id);
       });
     
@@ -115,7 +136,6 @@ export default function HomeScreen() {
       
       console.log('✅ Загружено мест:', result.items.length);
       
-      // Загружаем категории отдельно для каждого места
       const placesWithCategories = await Promise.all(
         result.items.map(async (place) => {
           if (place.category) {
@@ -138,15 +158,12 @@ export default function HomeScreen() {
       );
       
       setAllPlaces(placesWithCategories);
-      
-      // Загружаем рейтинги для всех мест
       await loadAllRatings(placesWithCategories);
       
     } catch (error: any) {
       console.error('❌ ОШИБКА ЗАГРУЗКИ МЕСТ:', error);
       setLoadError(`Ошибка загрузки: ${error.message || 'Неизвестная ошибка'}`);
       
-      // Пробуем самый простой запрос
       try {
         const simpleResult = await pb.collection('places').getList(1, 20);
         setAllPlaces(simpleResult.items);
@@ -163,7 +180,7 @@ export default function HomeScreen() {
 
   const handleRefresh = () => {
     setRefreshing(true);
-    setRatings({}); // Сбрасываем рейтинги
+    setRatings({});
     loadPlaces();
     if (user) {
       loadViewedPlaces();
@@ -217,10 +234,8 @@ export default function HomeScreen() {
     );
   }, [allPlaces, searchQuery]);
 
-  // Сортируем по рейтингу (используем ratings или external_rating)
   const sortedPlaces = useMemo(() => {
     return [...filteredPlaces].sort((a, b) => {
-      // Получаем рейтинг из состояния или из БД
       const ratingA = ratings[a.id]?.rating || 
                      (a.external_rating ? parseFloat(a.external_rating) : 0);
       const ratingB = ratings[b.id]?.rating || 
@@ -229,7 +244,6 @@ export default function HomeScreen() {
     });
   }, [filteredPlaces, ratings]);
 
-  // ГРУППИРУЕМ ПО КАТЕГОРИЯМ
   const categories = useMemo(() => {
     const categoriesMap = new Map<string, any[]>();
     
@@ -241,7 +255,6 @@ export default function HomeScreen() {
       categoriesMap.get(categoryName)!.push(place);
     });
 
-    // Сортируем категории по количеству мест
     return Array.from(categoriesMap.entries())
       .map(([name, places], index) => ({
         id: `category-${index}`,
@@ -265,7 +278,6 @@ export default function HomeScreen() {
   };
 
   const renderPlaceCard = ({ item }: { item: any }) => {
-    // Получаем рейтинг для этой карточки
     const placeRating = ratings[item.id];
     const ratingValue = placeRating?.rating || 
                        (item.external_rating ? parseFloat(item.external_rating) : null);
@@ -282,7 +294,6 @@ export default function HomeScreen() {
   };
 
   const renderCategorySection = ({ item }: { item: any }) => {
-    // Находим лучший рейтинг в категории
     let topRating = 0;
     item.places.forEach((place: any) => {
       const rating = ratings[place.id]?.rating || 
@@ -298,7 +309,6 @@ export default function HomeScreen() {
           <Text style={styles.categoryName}>{item.name}</Text>
           <View style={styles.categoryHeaderRight}>
             <Text style={styles.placesCount}>{item.count}</Text>
-            {/* Показываем лучший рейтинг в категории */}
             {topRating > 0 && (
               <View style={styles.topRatingBadge}>
                 <Text style={styles.topRatingText}>★ {topRating.toFixed(1)}</Text>
@@ -318,6 +328,32 @@ export default function HomeScreen() {
     );
   };
 
+  // Компонент пустого состояния с предложением поиска в Яндекс.Картах
+  const EmptyListComponent = () => {
+    if (!searchQuery.trim()) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyEmoji}>🔍</Text>
+          <Text style={styles.emptyTitle}>Ничего не найдено</Text>
+          <Text style={styles.emptyText}>Попробуйте изменить поисковый запрос</Text>
+        </View>
+      );
+    }
+    
+    return (
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyEmoji}>📍</Text>
+        <Text style={styles.emptyTitle}>Место не найдено</Text>
+        <Text style={styles.emptyText}>
+          По запросу "{searchQuery}" ничего не найдено в нашем каталоге
+        </Text>
+        <TouchableOpacity style={styles.yandexSearchButton} onPress={searchInYandexMaps}>
+          <Text style={styles.yandexSearchButtonText}>🔍 Найти "{searchQuery}" на Яндекс.Картах</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   if (isLoading) {
     return (
       <View style={styles.container}>
@@ -328,7 +364,7 @@ export default function HomeScreen() {
               placeholder="Поиск по названию или адресу..."
               value={searchQuery}
               onChangeText={setSearchQuery}
-              placeholderTextColor="#EFE9E1" // Светлый placeholder
+              placeholderTextColor="#EFE9E1"
             />
             {searchQuery ? (
               <TouchableOpacity style={styles.clearButton} onPress={clearSearch}>
@@ -356,7 +392,7 @@ export default function HomeScreen() {
               placeholder="Поиск по названию или адресу..."
               value={searchQuery}
               onChangeText={setSearchQuery}
-              placeholderTextColor="#EFE9E1" // ИЗМЕНИТЬ НА СВЕТЛЫЙ
+              placeholderTextColor="#EFE9E1"
             />
             {searchQuery ? (
               <TouchableOpacity style={styles.clearButton} onPress={clearSearch}>
@@ -386,7 +422,7 @@ export default function HomeScreen() {
             placeholder="Поиск по названию или адресу..."
             value={searchQuery}
             onChangeText={setSearchQuery}
-            placeholderTextColor="#EFE9E1" // ИЗМЕНИТЬ НА СВЕТЛЫЙ
+            placeholderTextColor="#EFE9E1"
           />
           {searchQuery ? (
             <TouchableOpacity style={styles.clearButton} onPress={clearSearch}>
@@ -402,14 +438,7 @@ export default function HomeScreen() {
         keyExtractor={(category) => category.id}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.categoriesList}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>Места не найдены</Text>
-            <TouchableOpacity style={styles.refreshButton} onPress={handleRefresh}>
-              <Text style={styles.refreshButtonText}>Обновить</Text>
-            </TouchableOpacity>
-          </View>
-        }
+        ListEmptyComponent={<EmptyListComponent />}
         refreshing={refreshing}
         onRefresh={handleRefresh}
       />
@@ -444,7 +473,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     fontSize: 16,
-    color: '#EFE9E1', // Светлый текст
+    color: '#EFE9E1',
     fontFamily: 'Banshrift',
   },
   clearButton: {
@@ -452,7 +481,7 @@ const styles = StyleSheet.create({
   },
   clearButtonText: {
     fontSize: 18,
-    color: '#EFE9E1', // Светлый текст для кнопки очистки
+    color: '#EFE9E1',
     fontFamily: 'Banshrift',
   },
   categoriesList: {
@@ -563,11 +592,40 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 40,
+    minHeight: 400,
+  },
+  emptyEmoji: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#72383D',
+    marginBottom: 8,
+    fontFamily: 'Banshrift',
+    textAlign: 'center',
   },
   emptyText: {
-    fontSize: 16,
-    color: '#000000',
+    fontSize: 14,
+    color: '#666666',
     textAlign: 'center',
+    lineHeight: 20,
     fontFamily: 'Banshrift',
+    marginBottom: 20,
+  },
+  yandexSearchButton: {
+    backgroundColor: '#FFB300',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginTop: 10,
+  },
+  yandexSearchButtonText: {
+    color: '#72383D',
+    fontSize: 14,
+    fontWeight: 'bold',
+    fontFamily: 'Banshrift',
+    textAlign: 'center',
   },
 });

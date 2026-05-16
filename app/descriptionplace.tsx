@@ -153,7 +153,18 @@ export default function DescriptionPlace() {
 
   const avgUserRating = reviews.length ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length : 0;
 
-  // Функция создания уведомления с подробными логами
+  // Функция для перехода в профиль пользователя
+  const handleUserPress = (userId: string) => {
+    if (!userId) return;
+    console.log('👤 Нажатие на пользователя:', userId);
+    if (user && userId === user.id) {
+      router.push('/profile');
+    } else {
+      router.push(`/userprofile?id=${userId}`);
+    }
+  };
+
+  // Функция создания уведомления
   const createNotification = async (toUserId: string, fromUserId: string, type: string, reviewId?: string, commentId?: string) => {
     console.log('🔔🔔🔔 createNotification ВЫЗВАНА! 🔔🔔🔔');
     console.log('   toUserId:', toUserId);
@@ -758,7 +769,11 @@ export default function DescriptionPlace() {
     return (
     <View key={item.id} style={[styles.reviewItem, isReply && styles.replyItem]}>
       <View style={styles.reviewHeader}>
-        <View style={styles.reviewUserInfo}>
+        <TouchableOpacity 
+          style={styles.reviewUserInfo}
+          onPress={() => handleUserPress(item.user)}
+          activeOpacity={0.7}
+        >
           <Image
             source={item.userAvatar ? { uri: item.userAvatar } : require('../assets/images/zaglushka.jpg')}
             style={styles.reviewAvatar}
@@ -767,7 +782,7 @@ export default function DescriptionPlace() {
             <Text style={styles.reviewUserName}>{item.userName}</Text>
             {!isReply && <StarRating rating={item.rating} size={14} interactive={false} />}
           </View>
-        </View>
+        </TouchableOpacity>
         {user && item.user === user.id && !isReply && (
           <View style={styles.reviewActions}>
             <TouchableOpacity onPress={() => editReview(item)}>

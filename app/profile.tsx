@@ -38,8 +38,6 @@ export default function ProfileScreen() {
   const [isActionsExpanded, setIsActionsExpanded] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [notificationsModalVisible, setNotificationsModalVisible] = useState(false);
-  const [selectedUserProfile, setSelectedUserProfile] = useState<any>(null);
-  const [profileModalVisible, setProfileModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -58,17 +56,6 @@ export default function ProfileScreen() {
         sort: '-created',
       });
       console.log('📥 Загружено уведомлений:', result.items.length);
-      
-      // Выводим каждое уведомление для отладки
-      result.items.forEach((item: any, index: number) => {
-        console.log(`📋 Уведомление ${index + 1}:`, {
-          id: item.id,
-          from_user: item.from_user,
-          expand_from_user: item.expand?.from_user,
-          type: item.type
-        });
-      });
-      
       setNotifications(result.items as any);
     } catch (error: any) {
       console.error('Ошибка загрузки уведомлений:', error);
@@ -93,21 +80,15 @@ export default function ProfileScreen() {
   };
 
   const getFromUserId = (notification: Notification): string | null => {
-    console.log('🔍 getFromUserId - проверка уведомления');
-    
     if (notification.expand?.from_user?.id) {
-      console.log('✅ Нашли ID в expand.from_user.id:', notification.expand.from_user.id);
       return notification.expand.from_user.id;
     }
     if (typeof notification.from_user === 'object' && notification.from_user !== null && 'id' in notification.from_user) {
-      console.log('✅ Нашли ID в from_user.id:', notification.from_user.id);
       return notification.from_user.id;
     }
     if (typeof notification.from_user === 'string') {
-      console.log('✅ from_user - строка:', notification.from_user);
       return notification.from_user;
     }
-    console.log('❌ Не удалось найти ID пользователя');
     return null;
   };
 
@@ -143,55 +124,8 @@ export default function ProfileScreen() {
       return;
     }
     
-    await loadUserProfile(userId);
-  };
-
-  const loadUserProfile = async (userId: string) => {
-    try {
-      console.log('📥 Загружаем профиль пользователя:', userId);
-      console.log('🔑 Текущий пользователь:', user?.id);
-      
-      // Если пытаемся загрузить свой профиль
-      if (userId === user?.id) {
-        console.log('📌 Загружаем свой профиль');
-        setSelectedUserProfile(user);
-        setProfileModalVisible(true);
-        return;
-      }
-      
-      const userProfile = await pb.collection('users').getOne(userId);
-      console.log('✅ Профиль загружен:', userProfile.firstname || userProfile.username);
-      
-      let favorites = [];
-      if (userProfile.is_favorites_public) {
-        try {
-          const favoritesResult = await pb.collection('user_favorites').getList(1, 100, {
-            filter: `user = "${userId}"`,
-            expand: 'place',
-          });
-          favorites = favoritesResult.items.map(item => item.expand?.place).filter(Boolean);
-          console.log('📦 Загружено избранных мест:', favorites.length);
-        } catch (error) {
-          console.error('Ошибка загрузки избранных мест:', error);
-        }
-      }
-      
-      setSelectedUserProfile({
-        ...userProfile,
-        favorites: favorites,
-      });
-      setProfileModalVisible(true);
-    } catch (error: any) {
-      console.error('❌ Ошибка загрузки профиля:', error);
-      console.error('Статус ошибки:', error.status);
-      console.error('Данные ошибки:', error.data);
-      
-      if (error.status === 404) {
-        Alert.alert('Ошибка', 'Пользователь не найден. Возможно, он был удален.');
-      } else {
-        Alert.alert('Ошибка', 'Не удалось загрузить профиль пользователя');
-      }
-    }
+    // Открываем отдельный экран профиля пользователя
+    router.push(`/userprofile?id=${userId}`);
   };
 
   const getNotificationText = (notification: Notification) => {
@@ -507,6 +441,7 @@ export default function ProfileScreen() {
         </View>
       )}
 
+      {/* Модальное окно уведомлений */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -557,60 +492,6 @@ export default function ProfileScreen() {
                 <Text style={styles.emptyText}>Нет уведомлений</Text>
               )}
             />
-          </View>
-        </View>
-      </Modal>
-
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={profileModalVisible}
-        onRequestClose={() => setProfileModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Профиль пользователя</Text>
-              <TouchableOpacity onPress={() => setProfileModalVisible(false)}>
-                <Text style={styles.closeButton}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            {selectedUserProfile && (
-              <ScrollView>
-                <View style={styles.profileModalInfo}>
-                  <Image
-                    source={selectedUserProfile.avatar ? { uri: getAvatarUrl(selectedUserProfile, selectedUserProfile.avatar) } : require('../assets/images/zaglushka.jpg')}
-                    style={styles.profileModalAvatar}
-                  />
-                  <Text style={styles.profileModalName}>{selectedUserProfile.firstname || selectedUserProfile.username}</Text>
-                  <Text style={styles.profileModalUsername}>@{selectedUserProfile.username}</Text>
-                  
-                  {selectedUserProfile.is_favorites_public && selectedUserProfile.favorites?.length > 0 && (
-                    <View style={styles.favoritesSection}>
-                      <Text style={styles.favoritesTitle}>Избранные места:</Text>
-                      {selectedUserProfile.favorites.map((place: any) => (
-                        <TouchableOpacity
-                          key={place.id}
-                          style={styles.favoriteItem}
-                          onPress={() => {
-                            setProfileModalVisible(false);
-                            router.push(`/descriptionplace?id=${place.id}`);
-                          }}
-                        >
-                          <Text style={styles.favoriteText}>{place.name}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  )}
-                  
-                  {selectedUserProfile.is_favorites_public === false && (
-                    <View style={styles.privateFavorites}>
-                      <Text style={styles.privateFavoritesText}>🔒 Список избранных мест скрыт</Text>
-                    </View>
-                  )}
-                </View>
-              </ScrollView>
-            )}
           </View>
         </View>
       </Modal>
@@ -931,65 +812,5 @@ const styles = StyleSheet.create({
     padding: 40,
     color: '#999',
     fontFamily: 'Banshrift',
-  },
-  profileModalInfo: {
-    alignItems: 'center',
-    padding: 20,
-  },
-  profileModalAvatar: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    marginBottom: 15,
-  },
-  profileModalName: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#72383D',
-    fontFamily: 'Banshrift',
-    marginBottom: 5,
-  },
-  profileModalUsername: {
-    fontSize: 16,
-    color: '#72383D',
-    fontFamily: 'Banshrift',
-    opacity: 0.7,
-    marginBottom: 20,
-  },
-  favoritesSection: {
-    width: '100%',
-    marginTop: 20,
-  },
-  favoritesTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#72383D',
-    fontFamily: 'Banshrift',
-    marginBottom: 10,
-  },
-  favoriteItem: {
-    padding: 12,
-    backgroundColor: '#F5F0EB',
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  favoriteText: {
-    color: '#72383D',
-    fontFamily: 'Banshrift',
-    fontSize: 14,
-  },
-  privateFavorites: {
-    marginTop: 20,
-    padding: 12,
-    backgroundColor: '#F5F0EB',
-    borderRadius: 8,
-    width: '100%',
-    alignItems: 'center',
-  },
-  privateFavoritesText: {
-    color: '#72383D',
-    fontFamily: 'Banshrift',
-    fontSize: 14,
-    opacity: 0.7,
   },
 });

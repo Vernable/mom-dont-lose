@@ -13,45 +13,39 @@ export default function FavoritesScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isPublic, setIsPublic] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [favoriteRecordId, setFavoriteRecordId] = useState<string | null>(null);
 
+  // Загрузка настроек из коллекции users
   const loadUserSettings = async () => {
     if (!user) return;
     try {
-      const result = await pb.collection('favorites').getList(1, 1, {
-        filter: `user = "${user.id}" && place = null`
-      });
-      
-      if (result.items.length > 0) {
-        const favRecord = result.items[0];
-        setFavoriteRecordId(favRecord.id);
-        const publicStatus = favRecord.is_public === true;
-        setIsPublic(publicStatus);
-      } else {
-        const newRecord = await pb.collection('favorites').create({
-          user: user.id,
-          is_public: false
-        });
-        setFavoriteRecordId(newRecord.id);
-        setIsPublic(false);
-      }
+      const userRecord = await pb.collection('users').getOne(user.id);
+      console.log('📥 Загружены настройки пользователя:', userRecord);
+      console.log('📥 is_public:', (userRecord as any).is_public);
+      setIsPublic((userRecord as any).is_public === true);
     } catch (error) {
       console.log('Ошибка загрузки настроек:', error);
     }
   };
 
+  // Сохранение настроек в коллекцию users
   const togglePublicStatus = async () => {
-    if (!user || isUpdating || !favoriteRecordId) return;
+    if (!user || isUpdating) return;
     setIsUpdating(true);
     
     const newStatus = !isPublic;
+    console.log('🔄 Переключаем is_public на:', newStatus);
     
     try {
-      const updatedRecord = await pb.collection('favorites').update(favoriteRecordId, {
+      const updatedUser = await pb.collection('users').update(user.id, {
         is_public: newStatus
-      });
+      } as any);
       
+      console.log('✅ Обновленный пользователь:', updatedUser);
       setIsPublic(newStatus);
+      
+      if (updateUser) {
+        updateUser({ ...user, is_public: newStatus } as any);
+      }
       
       Alert.alert(
         '✅ Настройки обновлены',
@@ -103,6 +97,7 @@ export default function FavoritesScreen() {
         }));
       
       setFavorites(favoritesWithPlaces);
+      console.log('📦 Загружено избранных мест:', favoritesWithPlaces.length);
     } catch (error: any) {
       console.error('Ошибка загрузки избранного:', error);
     } finally {
@@ -174,8 +169,7 @@ export default function FavoritesScreen() {
     return favorites.filter(fav => fav.status === status).length;
   };
 
-  // Простой рендер для проверки
-  const renderFavoriteItem = ({ item, index }: { item: any, index: number }) => {
+  const renderFavoriteItem = ({ item }: { item: any }) => {
     const place = item.expand?.place;
     
     if (!place) return null;
@@ -297,8 +291,6 @@ export default function FavoritesScreen() {
           keyExtractor={(item, index) => item.id || index.toString()} 
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
-          initialNumToRender={10}
-          removeClippedSubviews={false}
         />
       ) : (
         <ScrollView contentContainerStyle={styles.emptyState}>
