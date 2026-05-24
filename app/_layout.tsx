@@ -24,6 +24,7 @@ type AuthContextType = {
   register: (email: string, password: string, name: string) => Promise<boolean>;
   logout: () => void;
   updateUser: (newUserData: Partial<User>) => void;
+  resetPassword: (email: string) => Promise<boolean>;
 };
 
 // Создаем контекст
@@ -34,6 +35,7 @@ const AuthContext = createContext<AuthContextType>({
   register: async () => false,
   logout: () => {},
   updateUser: () => {},
+  resetPassword: async () => false,
 });
 
 // Хук для использования авторизации
@@ -81,17 +83,6 @@ export default function RootLayout() {
     try {
       console.log('🔍 Проверка авторизации...');
       
-      // Проверяем подключение к PocketBase
-      console.log('🌐 Проверка подключения к PocketBase...');
-      
-      // Проверяем текущее состояние авторизации
-      console.log('📊 Текущее состояние authStore:', {
-        isValid: pb.authStore.isValid,
-        hasToken: !!pb.authStore.token,
-        hasModel: !!pb.authStore.model,
-        modelEmail: pb.authStore.model?.email || 'нет'
-      });
-
       if (pb.authStore.isValid && pb.authStore.model) {
         console.log('✅ Пользователь найден в authStore:', pb.authStore.model.email);
         const userData = pb.authStore.model;
@@ -130,20 +121,12 @@ export default function RootLayout() {
     try {
       console.log(`🔐 Попытка входа для: ${email}`);
       
-      // Очищаем старую сессию
-      pb.authStore.clear();
-      
-      // Пробуем войти
       const authData = await pb.collection('users').authWithPassword(
         email.trim().toLowerCase(),
         password
       );
       
-      console.log('✅ Успешный вход:', {
-        id: authData.record.id,
-        email: authData.record.email,
-        username: authData.record.username
-      });
+      console.log('✅ Успешный вход:', authData.record.email);
       
       const userData = authData.record;
       const newUser = {
@@ -159,94 +142,52 @@ export default function RootLayout() {
         updated: userData.updated
       };
       
-      console.log('👤 Установка состояния пользователя:', newUser);
       setUser(newUser);
-      
-      Alert.alert('Успех', 'Вход выполнен успешно!');
       return true;
       
     } catch (error: any) {
-      console.error('❌ Ошибка входа:', {
-        message: error.message,
-        status: error.status,
-        data: error.data
-      });
-      
-      let errorMessage = 'Ошибка входа';
-      
-      if (error.status === 400) {
-        errorMessage = 'Неверный email или пароль';
-      } else if (error.status === 0) {
-        errorMessage = 'Нет соединения с сервером. Проверьте: \n1. Запущен ли PocketBase\n2. Правильный ли URL в pb.ts\n3. Подключение к интернету';
-      } else {
-        errorMessage = error.message || 'Неизвестная ошибка';
-      }
-      
-      Alert.alert('Ошибка входа', errorMessage);
+      console.error('❌ Ошибка входа:', error.message);
       return false;
     }
   };
 
-  // Функция регистрации
+  // Функция регистрации (ИСПРАВЛЕНА)
   const register = async (email: string, password: string, name: string): Promise<boolean> => {
     try {
       console.log(`📝 Регистрация пользователя: ${email}`);
       
+      // Создаём пользователя
       const userData = await pb.collection('users').create({
         email: email.trim().toLowerCase(),
         password: password,
         passwordConfirm: password,
         firstname: name.trim(),
-        username: name.trim(),
-        emailVisibility: true
+        emailVisibility: true,
       });
 
-      console.log('✅ Успешная регистрация, вход...');
-
-      // Авторизуем нового пользователя
+      console.log('✅ Успешная регистрация, создан пользователь:', userData.id);
+      
+      // Автоматически входим после регистрации
       const authData = await pb.collection('users').authWithPassword(
         email.trim().toLowerCase(),
         password
       );
       
       const newUser = {
-        id: userData.id,
-        email: userData.email,
-        name: userData.firstname || userData.email,
-        firstname: userData.firstname,
-        verified: userData.verified,
-        created: userData.created,
-        updated: userData.updated
+        id: authData.record.id,
+        email: authData.record.email,
+        name: authData.record.firstname || authData.record.email,
+        firstname: authData.record.firstname,
+        verified: authData.record.verified,
+        created: authData.record.created,
+        updated: authData.record.updated
       };
       
-      console.log('👤 Установка состояния пользователя после регистрации:', newUser);
       setUser(newUser);
-      
-      Alert.alert('Успех', 'Регистрация выполнена успешно!');
       return true;
       
     } catch (error: any) {
-      console.error('❌ Ошибка регистрации:', {
-        message: error.message,
-        status: error.status,
-        data: error.data
-      });
-      
-      let errorMessage = 'Ошибка регистрации';
-      
-      if (error.data?.email?.code === 'validation_invalid_email') {
-        errorMessage = 'Неверный формат email';
-      } else if (error.data?.email?.code === 'validation_not_unique') {
-        errorMessage = 'Пользователь с таким email уже существует';
-      } else if (error.data?.password) {
-        errorMessage = 'Слишком короткий пароль (минимум 8 символов)';
-      } else if (error.status === 0) {
-        errorMessage = 'Нет соединения с сервером';
-      } else {
-        errorMessage = error.message || 'Неизвестная ошибка';
-      }
-      
-      Alert.alert('Ошибка регистрации', errorMessage);
+      console.error('❌ Ошибка регистрации:', error.message);
       return false;
     }
   };
@@ -256,7 +197,6 @@ export default function RootLayout() {
     console.log('🚪 Выход из системы...');
     pb.authStore.clear();
     setUser(null);
-    Alert.alert('Успех', 'Вы вышли из системы');
   };
 
   // Функция обновления данных пользователя
@@ -270,16 +210,26 @@ export default function RootLayout() {
     });
   };
 
+  // Функция восстановления пароля (добавлена)
+  const resetPassword = async (email: string): Promise<boolean> => {
+    try {
+      await pb.collection('users').requestPasswordReset(email);
+      return true;
+    } catch (error: any) {
+      console.error('❌ Ошибка восстановления пароля:', error.message);
+      return false;
+    }
+  };
+
   const authContextValue: AuthContextType = {
     user,
     isLoading,
     login,
     register,
     logout,
-    updateUser
+    updateUser,
+    resetPassword,
   };
-
-  console.log('📱 RootLayout рендер - user:', user?.email, 'isLoading:', isLoading);
 
   return (
     <AuthContext.Provider value={authContextValue}>

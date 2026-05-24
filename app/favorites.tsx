@@ -222,7 +222,7 @@ export default function FavoritesScreen() {
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>⭐ Избранное</Text>
+          <Text style={styles.headerTitle}>Избранное</Text>
         </View>
         <View style={styles.emptyState}>
           <Text style={styles.emptyStateEmoji}>🔐</Text>
@@ -241,7 +241,7 @@ export default function FavoritesScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <Text style={styles.headerTitle}>⭐ Избранное</Text>
+          <Text style={styles.headerTitle}>Избранное</Text>
           <TouchableOpacity style={styles.shareButton} onPress={shareProfile}>
             <Text style={styles.shareButtonText}>📤 Поделиться</Text>
           </TouchableOpacity>
