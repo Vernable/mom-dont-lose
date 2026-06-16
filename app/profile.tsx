@@ -15,7 +15,7 @@ interface Notification {
     firstname: string;
     avatar?: string;
   };
-  type: 'like_review' | 'like_comment' | 'reply_review';
+  type: 'like_review' | 'like_comment' | 'reply_review' | 'review_approved' | 'review_rejected';
   review_id?: string;
   comment_id?: string;
   is_read: boolean;
@@ -28,6 +28,22 @@ interface Notification {
       avatar?: string;
     };
   };
+  comment?: string;
+}
+
+// ОПИСЫВАЕМ ТИП UserWithAdmin НАПРЯМУЮ ЗДЕСЬ
+interface UserWithAdmin {
+  id: string;
+  email: string;
+  name: string;
+  firstname?: string;
+  lastname?: string;
+  username?: string;
+  avatar?: string;
+  verified?: boolean;
+  created?: string;
+  updated?: string;
+  is_admin?: boolean;
 }
 
 export default function ProfileScreen() {
@@ -40,6 +56,56 @@ export default function ProfileScreen() {
   const [notificationsModalVisible, setNotificationsModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
+  // ===== ДЛЯ МОДЕРАЦИИ =====
+  const [pendingReviews, setPendingReviews] = useState<any[]>([]);
+  const [showModeration, setShowModeration] = useState(false);
+
+  // ===== ЗАГРУЗКА ОТЗЫВОВ НА МОДЕРАЦИЮ =====
+  const loadPendingReviews = async () => {
+    if (!user) return;
+    const userWithAdmin = user as UserWithAdmin;
+    if (!userWithAdmin.is_admin) return;
+    try {
+      const result = await pb.collection('reviews').getList(1, 100, {
+        filter: 'status = "pending"',
+        expand: 'user,place',
+        sort: '-created',
+      });
+      setPendingReviews(result.items);
+    } catch (error) {
+      console.error('Ошибка загрузки отзывов на модерацию:', error);
+    }
+  };
+
+  // ===== МОДЕРАЦИЯ ОТЗЫВА =====
+  const moderateReview = async (reviewId: string, status: 'approved' | 'rejected', comment?: string) => {
+    if (!user) return;
+    try {
+      await pb.collection('reviews').update(reviewId, {
+        status: status,
+        moderation_comment: comment || '',
+      });
+
+      const review = pendingReviews.find(r => r.id === reviewId);
+      if (review) {
+        await pb.collection('notifications').create({
+          user: review.user,
+          from_user: user.id,
+          type: status === 'approved' ? 'review_approved' : 'review_rejected',
+          review_id: reviewId,
+          is_read: false,
+          comment: comment || (status === 'approved' ? '✅ Ваш отзыв опубликован' : '❌ Ваш отзыв отклонен'),
+        });
+      }
+
+      Alert.alert('Успех', 'Отзыв обработан');
+      loadPendingReviews();
+    } catch (error) {
+      console.error('Ошибка модерации:', error);
+      Alert.alert('Ошибка', 'Не удалось обработать отзыв');
+    }
+  };
+
   useEffect(() => {
     if (user) {
       loadNotifications();
@@ -48,7 +114,6 @@ export default function ProfileScreen() {
 
   const loadNotifications = async () => {
     if (!user) return;
-    
     try {
       const result = await pb.collection('notifications').getList(1, 50, {
         filter: `user = "${user.id}"`,
@@ -117,14 +182,11 @@ export default function ProfileScreen() {
 
   const handleNotificationPress = async (notification: Notification) => {
     await markAsRead(notification.id);
-    
     const userId = getFromUserId(notification);
     if (!userId) {
       Alert.alert('Ошибка', 'Не удалось определить пользователя');
       return;
     }
-    
-    // Открываем отдельный экран профиля пользователя
     router.push(`/userprofile?id=${userId}`);
   };
 
@@ -136,6 +198,10 @@ export default function ProfileScreen() {
         return 'лайкнул(а) ваш комментарий';
       case 'reply_review':
         return 'ответил(а) на ваш отзыв';
+      case 'review_approved':
+        return '✅ Ваш отзыв опубликован';
+      case 'review_rejected':
+        return '❌ Ваш отзыв отклонен';
       default:
         return 'взаимодействовал(а) с вашим контентом';
     }
@@ -158,19 +224,16 @@ export default function ProfileScreen() {
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    
     if (status !== 'granted') {
       Alert.alert('Ошибка', 'Необходимо разрешение на доступ к галерее');
       return;
     }
-
-    let result = await ImagePicker.launchImageLibraryAsync({
+    const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
     });
-
     if (!result.canceled && result.assets && result.assets[0]) {
       await uploadImage(result.assets[0].uri);
     }
@@ -178,18 +241,15 @@ export default function ProfileScreen() {
 
   const takePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    
     if (status !== 'granted') {
       Alert.alert('Ошибка', 'Необходимо разрешение на доступ к камере');
       return;
     }
-
-    let result = await ImagePicker.launchCameraAsync({
+    const result = await ImagePicker.launchCameraAsync({
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
     });
-
     if (!result.canceled && result.assets && result.assets[0]) {
       await uploadImage(result.assets[0].uri);
     }
@@ -197,18 +257,12 @@ export default function ProfileScreen() {
 
   const deleteAvatar = async () => {
     if (!user) return;
-
     try {
       setIsLoading(true);
-
-      const updatedUser = await pb.collection('users').update(user.id, {
-        'avatar': null
-      });
-
+      const updatedUser = await pb.collection('users').update(user.id, { avatar: null });
       if (updateUser) {
         updateUser(updatedUser);
       }
-
       Alert.alert('Успех', 'Аватар удален');
     } catch (error: any) {
       console.error('Ошибка удаления аватара:', error);
@@ -219,21 +273,10 @@ export default function ProfileScreen() {
   };
 
   const showImagePickerOptions = () => {
-    const options: {
-      text: string;
-      onPress?: () => void | Promise<void>;
-      style?: 'default' | 'cancel' | 'destructive';
-    }[] = [
-      {
-        text: 'Камера',
-        onPress: takePhoto,
-      },
-      {
-        text: 'Галерея',
-        onPress: pickImage,
-      },
+    const options: any[] = [
+      { text: 'Камера', onPress: takePhoto },
+      { text: 'Галерея', onPress: pickImage },
     ];
-
     if (user?.avatar) {
       options.push({
         text: 'Удалить аватар',
@@ -241,38 +284,24 @@ export default function ProfileScreen() {
         style: 'destructive',
       });
     }
-
-    options.push({
-      text: 'Отмена',
-      style: 'cancel',
-    });
-
-    Alert.alert(
-      'Сменить аватар',
-      'Выберите действие',
-      options
-    );
+    options.push({ text: 'Отмена', style: 'cancel' });
+    Alert.alert('Сменить аватар', 'Выберите действие', options);
   };
 
   const uploadImage = async (uri: string) => {
     if (!user) return;
-
     try {
       setIsLoading(true);
-
       const formData = new FormData();
       formData.append('avatar', {
         uri,
         type: 'image/jpeg',
         name: 'avatar.jpg',
       } as any);
-
       const updatedUser = await pb.collection('users').update(user.id, formData);
-
       if (updateUser) {
         updateUser(updatedUser);
       }
-
       Alert.alert('Успех', 'Аватар обновлен');
     } catch (error: any) {
       console.error('Ошибка загрузки аватара:', error);
@@ -293,11 +322,14 @@ export default function ProfileScreen() {
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
+  // Проверяем, является ли пользователь админом
+  const isAdmin = user ? (user as UserWithAdmin).is_admin === true : false;
+
   return (
     <View style={styles.container}>
       {user ? (
         <View style={styles.profileContent}>
-          <ScrollView 
+          <ScrollView
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
             refreshControl={
@@ -306,7 +338,7 @@ export default function ProfileScreen() {
           >
             <View style={styles.header}>
               <Text style={styles.headerUsername}>@{user.username || 'username'}</Text>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.notificationButton}
                 onPress={() => {
                   refreshNotifications();
@@ -323,12 +355,12 @@ export default function ProfileScreen() {
             </View>
 
             <View style={styles.profileRow}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.photoContainer}
                 onPress={showImagePickerOptions}
                 disabled={isLoading}
               >
-                <Image 
+                <Image
                   source={user.avatar ? { uri: getAvatarUrl(user, user.avatar) } : require('../assets/images/zaglushka.jpg')}
                   style={styles.profilePhoto}
                   resizeMode="cover"
@@ -342,7 +374,6 @@ export default function ProfileScreen() {
                   </View>
                 )}
               </TouchableOpacity>
-
               <View style={styles.userInfo}>
                 <Text style={styles.userName}>{user.firstname || user.username || 'Пользователь'}</Text>
                 <Text style={styles.userEmail}>{user.email}</Text>
@@ -350,7 +381,7 @@ export default function ProfileScreen() {
             </View>
 
             <View style={styles.section}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.sectionHeader}
                 onPress={() => setIsInfoExpanded(!isInfoExpanded)}
                 activeOpacity={0.7}
@@ -358,28 +389,20 @@ export default function ProfileScreen() {
                 <Text style={styles.sectionTitle}>Информация профиля</Text>
                 <Text style={styles.chevron}>{isInfoExpanded ? '▼' : '▶'}</Text>
               </TouchableOpacity>
-              
               {isInfoExpanded && (
                 <View style={styles.sectionContent}>
                   <View style={styles.infoRow}>
                     <Text style={styles.infoLabel}>Имя</Text>
-                    <Text style={styles.infoValue}>
-                      {user.firstname || 'Не указано'}
-                    </Text>
+                    <Text style={styles.infoValue}>{user.firstname || 'Не указано'}</Text>
                   </View>
-                  
                   <View style={styles.infoRow}>
                     <Text style={styles.infoLabel}>Имя пользователя</Text>
-                    <Text style={styles.infoValue}>
-                      {user.username || 'Не указано'}
-                    </Text>
+                    <Text style={styles.infoValue}>{user.username || 'Не указано'}</Text>
                   </View>
-                  
                   <View style={styles.infoRow}>
                     <Text style={styles.infoLabel}>Email</Text>
                     <Text style={styles.infoValue}>{user.email}</Text>
                   </View>
-                  
                   <View style={styles.infoRow}>
                     <Text style={styles.infoLabel}>Дата регистрации</Text>
                     <Text style={styles.infoValue}>
@@ -391,7 +414,7 @@ export default function ProfileScreen() {
             </View>
 
             <View style={styles.section}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.sectionHeader}
                 onPress={() => setIsActionsExpanded(!isActionsExpanded)}
                 activeOpacity={0.7}
@@ -399,24 +422,35 @@ export default function ProfileScreen() {
                 <Text style={styles.sectionTitle}>Действия</Text>
                 <Text style={styles.chevron}>{isActionsExpanded ? '▼' : '▶'}</Text>
               </TouchableOpacity>
-              
               {isActionsExpanded && (
                 <View style={styles.sectionContent}>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.actionButton}
                     onPress={() => router.push('/editprofile')}
                   >
                     <Text style={styles.actionButtonText}>✏️ Редактировать профиль</Text>
                   </TouchableOpacity>
-                  
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.actionButton}
                     onPress={handleViewedPlaces}
                   >
                     <Text style={styles.actionButtonText}>👁️ История</Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity 
+                  {/* ===== КНОПКА МОДЕРАЦИИ ===== */}
+                  {isAdmin && (
+                    <TouchableOpacity
+                      style={[styles.actionButton, { backgroundColor: '#72383D' }]}
+                      onPress={() => {
+                        loadPendingReviews();
+                        setShowModeration(true);
+                      }}
+                    >
+                      <Text style={styles.actionButtonText}>🔍 Отзывы на модерацию ({pendingReviews.length})</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  <TouchableOpacity
                     style={[styles.actionButton, styles.logoutButton]}
                     onPress={handleLogout}
                   >
@@ -425,14 +459,13 @@ export default function ProfileScreen() {
                 </View>
               )}
             </View>
-
             <View style={styles.bottomSpacer} />
           </ScrollView>
         </View>
       ) : (
         <View style={styles.guestContent}>
           <Text style={styles.guestText}>Вы не авторизованы</Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.authButton}
             onPress={() => router.push('/auth')}
           >
@@ -467,31 +500,103 @@ export default function ProfileScreen() {
               renderItem={({ item }) => {
                 const userName = getFromUserName(item);
                 const userAvatar = getFromUserAvatar(item);
-                
                 return (
-                <TouchableOpacity
-                  style={[styles.notificationItem, !item.is_read && styles.unreadNotification]}
-                  onPress={() => handleNotificationPress(item)}
-                >
-                  <Image
-                    source={userAvatar ? { uri: getAvatarUrl({ avatar: userAvatar }, userAvatar) } : require('../assets/images/zaglushka.jpg')}
-                    style={styles.notificationAvatar}
-                  />
-                  <View style={styles.notificationContent}>
-                    <Text style={styles.notificationText}>
-                      <Text style={styles.notificationUserName}>{userName}</Text>
-                      {' '}{getNotificationText(item)}
-                    </Text>
-                    <Text style={styles.notificationTime}>
-                      {new Date(item.created).toLocaleString('ru-RU')}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              )}}
+                  <TouchableOpacity
+                    style={[styles.notificationItem, !item.is_read && styles.unreadNotification]}
+                    onPress={() => handleNotificationPress(item)}
+                  >
+                    <Image
+                      source={userAvatar ? { uri: getAvatarUrl({ avatar: userAvatar }, userAvatar) } : require('../assets/images/zaglushka.jpg')}
+                      style={styles.notificationAvatar}
+                    />
+                    <View style={styles.notificationContent}>
+                      <Text style={styles.notificationText}>
+                        <Text style={styles.notificationUserName}>{userName}</Text>
+                        {' '}{getNotificationText(item)}
+                      </Text>
+                      <Text style={styles.notificationTime}>
+                        {new Date(item.created).toLocaleString('ru-RU')}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              }}
               ListEmptyComponent={() => (
                 <Text style={styles.emptyText}>Нет уведомлений</Text>
               )}
             />
+          </View>
+        </View>
+      </Modal>
+
+      {/* ===== МОДАЛЬНОЕ ОКНО МОДЕРАЦИИ ===== */}
+      <Modal
+        visible={showModeration}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowModeration(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { minHeight: 300 }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Модерация отзывов</Text>
+              <TouchableOpacity onPress={() => setShowModeration(false)}>
+                <Text style={styles.closeButton}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            {pendingReviews.length === 0 ? (
+              <Text style={styles.emptyText}>Нет отзывов на модерацию</Text>
+            ) : (
+              <FlatList
+                data={pendingReviews}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                  <View style={styles.reviewItem}>
+                    <Text style={styles.reviewUserName}>
+                      {item.expand?.user?.firstname || item.expand?.user?.username || 'Пользователь'}
+                    </Text>
+                    <Text style={styles.reviewComment}>{item.comment}</Text>
+                    <Text style={styles.reviewRating}>⭐ {item.rating}</Text>
+                    <Text style={styles.reviewPlace}>📍 {item.expand?.place?.name || 'Место'}</Text>
+                    <View style={styles.moderationButtons}>
+                      <TouchableOpacity
+                        style={[styles.moderationButton, styles.approveButton]}
+                        onPress={() => moderateReview(item.id, 'approved')}
+                      >
+                        <Text style={styles.moderationButtonText}>✅ Одобрить</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.moderationButton, styles.rejectButton]}
+                        onPress={() => {
+                          Alert.prompt(
+                            'Причина отказа',
+                            'Введите причину отказа:',
+                            [
+                              { text: 'Отмена', style: 'cancel' },
+                              {
+                                text: 'Отклонить',
+                                onPress: (value?: string) => {
+                                  moderateReview(item.id, 'rejected', value || 'Не прошло модерацию');
+                                }
+                              }
+                            ],
+                            'plain-text'
+                          );
+                        }}
+                      >
+                        <Text style={styles.moderationButtonText}>❌ Отклонить</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+              />
+            )}
+            <TouchableOpacity
+              style={[styles.cancelButton, { marginTop: 10 }]}
+              onPress={() => setShowModeration(false)}
+            >
+              <Text style={styles.cancelButtonText}>Закрыть</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -811,6 +916,75 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     padding: 40,
     color: '#999',
+    fontFamily: 'Banshrift',
+  },
+
+  // ===== СТИЛИ ДЛЯ МОДЕРАЦИИ =====
+  reviewItem: {
+    backgroundColor: '#fff',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  reviewUserName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#72383D',
+    fontFamily: 'Banshrift',
+  },
+  reviewComment: {
+    fontSize: 14,
+    color: '#333',
+    fontFamily: 'Banshrift',
+    marginVertical: 4,
+  },
+  reviewRating: {
+    fontSize: 14,
+    color: '#FFB300',
+    fontFamily: 'Banshrift',
+  },
+  reviewPlace: {
+    fontSize: 14,
+    color: '#666',
+    fontFamily: 'Banshrift',
+    marginBottom: 8,
+  },
+  moderationButtons: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 8,
+  },
+  moderationButton: {
+    padding: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    flex: 1,
+  },
+  approveButton: {
+    backgroundColor: '#28a745',
+  },
+  rejectButton: {
+    backgroundColor: '#dc3545',
+  },
+  moderationButtonText: {
+    color: 'white',
+    fontFamily: 'Banshrift',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  cancelButton: {
+    padding: 16,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    color: '#000000',
+    fontWeight: '500',
     fontFamily: 'Banshrift',
   },
 });

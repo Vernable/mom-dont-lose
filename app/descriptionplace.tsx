@@ -46,6 +46,23 @@ interface ReviewType {
   hasUserLiked?: boolean;
   hasUserDisliked?: boolean;
   replies?: ReviewType[];
+  status?: string;
+  moderation_comment?: string;
+}
+
+// Расширяем тип User для поддержки is_admin
+interface UserWithAdmin {
+  id: string;
+  email: string;
+  name: string;
+  firstname?: string;
+  lastname?: string;
+  username?: string;
+  avatar?: string;
+  verified?: boolean;
+  created?: string;
+  updated?: string;
+  is_admin?: boolean;
 }
 
 const AppRatingStars = ({ rating, size = 36 }: { rating: number; size?: number }) => {
@@ -231,7 +248,20 @@ export default function DescriptionPlace() {
   const loadReviews = useCallback(async () => {
     if (!params.id) return;
     try {
-      const result = await pb.collection('reviews').getList(1, 100);
+      // Проверяем, является ли пользователь админом
+      const isAdmin = user ? (user as UserWithAdmin).is_admin === true : false;
+      
+      // Админ видит все отзывы, обычные пользователи только approved
+      const filter = isAdmin 
+        ? `place = "${params.id}"` 
+        : `place = "${params.id}" && status = "approved"`;
+      
+      const result = await pb.collection('reviews').getList(1, 100, {
+        filter: filter,
+        expand: 'user',
+        sort: '-created',
+      });
+      
       const placeReviews = result.items.filter((review) => review.place === params.id);
       
       const reviewsWithUsers = await Promise.all(
@@ -254,6 +284,8 @@ export default function DescriptionPlace() {
             hasUserDisliked: review.disliked_by?.includes(user?.id) || false,
             replies: [],
             parent_id: review.parent_id || undefined,
+            status: review.status || 'approved',
+            moderation_comment: review.moderation_comment || '',
           };
         })
       );
@@ -274,6 +306,46 @@ export default function DescriptionPlace() {
       console.error('Ошибка загрузки отзывов:', error);
     }
   }, [params.id, user?.id]);
+
+  // ===== ФУНКЦИЯ МОДЕРАЦИИ ОТЗЫВА =====
+  const moderateReview = async (reviewId: string, status: 'approved' | 'rejected', comment?: string) => {
+    if (!user) {
+      Alert.alert('Ошибка', 'Вы не авторизованы');
+      return;
+    }
+    
+    const isAdmin = (user as UserWithAdmin).is_admin === true;
+    if (!isAdmin) {
+      Alert.alert('Ошибка', 'У вас нет прав для модерации');
+      return;
+    }
+    
+    try {
+      await pb.collection('reviews').update(reviewId, {
+        status: status,
+        moderation_comment: comment || '',
+      });
+      
+      // Находим отзыв для отправки уведомления
+      const review = reviews.find(r => r.id === reviewId);
+      if (review) {
+        await pb.collection('notifications').create({
+          user: review.user,
+          from_user: user.id,
+          type: status === 'approved' ? 'review_approved' : 'review_rejected',
+          review_id: reviewId,
+          is_read: false,
+          comment: comment || (status === 'approved' ? '✅ Ваш отзыв опубликован' : '❌ Ваш отзыв отклонен'),
+        });
+      }
+      
+      Alert.alert('Успех', `Отзыв ${status === 'approved' ? 'опубликован' : 'отклонен'}`);
+      await loadReviews();
+    } catch (error: any) {
+      console.error('Ошибка модерации:', error);
+      Alert.alert('Ошибка', 'Не удалось обработать отзыв');
+    }
+  };
 
   const handleLike = async (review: ReviewType) => {
     if (!user) {
@@ -456,6 +528,7 @@ export default function DescriptionPlace() {
         rating: 0,
         parent_id: replyingToReview?.id,
         reply_to_user_name: replyingToReview?.userName,
+        status: 'approved', // Ответы сразу публикуются
       });
       
       console.log('📝 Ответ создан, replyingToReview =', replyingToReview);
@@ -514,8 +587,9 @@ export default function DescriptionPlace() {
         await pb.collection('reviews').update(editingReview.id, {
           rating: newReviewRating,
           comment: newReviewComment,
+          status: 'pending', // При редактировании статус сбрасывается
         });
-        Alert.alert('Успех', 'Отзыв обновлен');
+        Alert.alert('Успех', 'Отзыв обновлен и отправлен на модерацию');
       } else {
         await pb.collection('reviews').create({
           user: user.id,
@@ -526,8 +600,9 @@ export default function DescriptionPlace() {
           dislikes: 0,
           liked_by: [],
           disliked_by: [],
+          status: 'pending', // Новый отзыв отправляется на модерацию
         });
-        Alert.alert('Успех', 'Отзыв добавлен');
+        Alert.alert('Успех', 'Отзыв отправлен на модерацию');
       }
       await loadReviews();
       resetReviewModal();
@@ -765,6 +840,8 @@ export default function DescriptionPlace() {
   const renderReviewItem = (item: ReviewType, isReply = false) => {
     const likesCount = item.likes || 0;
     const dislikesCount = item.dislikes || 0;
+    const isAdmin = user ? (user as UserWithAdmin).is_admin === true : false;
+    const isOwner = user && item.user === user.id;
     
     return (
     <View key={item.id} style={[styles.reviewItem, isReply && styles.replyItem]}>
@@ -794,6 +871,67 @@ export default function DescriptionPlace() {
           </View>
         )}
       </View>
+      
+      {/* ===== СТАТУС ОТЗЫВА (ДЛЯ ВЛАДЕЛЬЦА) ===== */}
+      {isOwner && item.status && item.status !== 'approved' && (
+        <View style={styles.statusBadge}>
+          <Text style={[
+            styles.statusText,
+            item.status === 'pending' && styles.statusPending,
+            item.status === 'rejected' && styles.statusRejected,
+          ]}>
+            {item.status === 'pending' && '⏳ Ожидает модерации'}
+            {item.status === 'rejected' && '❌ Отклонен'}
+          </Text>
+          {item.status === 'rejected' && item.moderation_comment ? (
+            <Text style={styles.moderationComment}>Причина: {item.moderation_comment}</Text>
+          ) : null}
+        </View>
+      )}
+      
+      {/* ===== КНОПКИ МОДЕРАЦИИ ДЛЯ АДМИНА ===== */}
+      {isAdmin && item.status === 'pending' && !isReply && (
+        <View style={styles.moderationButtons}>
+          <TouchableOpacity 
+            style={[styles.moderationButton, styles.approveButton]}
+            onPress={() => {
+              Alert.prompt(
+                'Одобрить отзыв',
+                'Вы уверены, что хотите опубликовать этот отзыв?',
+                [
+                  { text: 'Отмена', style: 'cancel' },
+                  {
+                    text: 'Одобрить',
+                    onPress: () => moderateReview(item.id, 'approved')
+                  }
+                ]
+              );
+            }}
+          >
+            <Text style={styles.moderationButtonText}>✅ Одобрить</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.moderationButton, styles.rejectButton]}
+            onPress={() => {
+              Alert.prompt(
+                'Причина отказа',
+                'Введите причину отказа (необязательно):',
+                [
+                  { text: 'Отмена', style: 'cancel' },
+                  {
+                    text: 'Отклонить',
+                    onPress: (value?: string) => moderateReview(item.id, 'rejected', value || '')
+                  }
+                ],
+                'plain-text'
+              );
+            }}
+          >
+            <Text style={styles.moderationButtonText}>❌ Отклонить</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+      
       {isReply && item.reply_to_user_name && (
         <Text style={styles.replyToLabel}>Ответ пользователю @{item.reply_to_user_name}</Text>
       )}
@@ -1365,4 +1503,53 @@ const styles = StyleSheet.create({
   reviewModalCancelButtonText: { fontSize: 16, color: '#666', fontFamily: 'Banshrift' },
   reviewModalSubmitButton: { backgroundColor: '#72383D' },
   reviewModalSubmitButtonText: { fontSize: 16, color: 'white', fontWeight: '600', fontFamily: 'Banshrift' },
+  
+  // ===== ДОБАВЛЕННЫЕ СТИЛИ ДЛЯ МОДЕРАЦИИ =====
+  statusBadge: { 
+    marginVertical: 6,
+    padding: 6,
+    borderRadius: 6,
+    backgroundColor: '#f0f0f0',
+  },
+  statusText: { 
+    fontSize: 13, 
+    fontFamily: 'Banshrift', 
+    fontWeight: 'bold',
+  },
+  statusPending: { 
+    color: '#856404',
+  },
+  statusRejected: { 
+    color: '#721c24',
+  },
+  moderationComment: { 
+    fontSize: 12, 
+    color: '#721c24', 
+    fontFamily: 'Banshrift',
+    marginTop: 2,
+  },
+  moderationButtons: {
+    flexDirection: 'row',
+    gap: 10,
+    marginVertical: 8,
+  },
+  moderationButton: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  approveButton: {
+    backgroundColor: '#28a745',
+  },
+  rejectButton: {
+    backgroundColor: '#dc3545',
+  },
+  moderationButtonText: {
+    color: 'white',
+    fontFamily: 'Banshrift',
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
 });
