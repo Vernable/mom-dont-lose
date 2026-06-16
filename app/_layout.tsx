@@ -3,7 +3,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { Alert } from 'react-native';
 import { pb } from './utils/pb';
 
-// Типы для авторизации
+// Типы для авторизации с is_admin
 type User = {
   id: string;
   email: string;
@@ -15,6 +15,7 @@ type User = {
   verified?: boolean;
   created?: string;
   updated?: string;
+  is_admin?: boolean; // ✅ ДОБАВЛЕНО
 };
 
 type AuthContextType = {
@@ -84,20 +85,24 @@ export default function RootLayout() {
       console.log('🔍 Проверка авторизации...');
       
       if (pb.authStore.isValid && pb.authStore.model) {
-        console.log('✅ Пользователь найден в authStore:', pb.authStore.model.email);
-        const userData = pb.authStore.model;
+        const userId = pb.authStore.model.id;
+        
+        // ✅ ЯВНО ЗАГРУЖАЕМ СВЕЖИЕ ДАННЫЕ ИЗ БД
+        const freshUser = await pb.collection('users').getOne(userId);
+        console.log('✅ Загружен свежий пользователь из БД:', freshUser);
         
         const currentUser = {
-          id: userData.id,
-          email: userData.email,
-          name: userData.firstname || userData.username || userData.email,
-          firstname: userData.firstname,
-          lastname: userData.lastname,
-          username: userData.username,
-          avatar: userData.avatar,
-          verified: userData.verified,
-          created: userData.created,
-          updated: userData.updated
+          id: freshUser.id,
+          email: freshUser.email,
+          name: freshUser.firstname || freshUser.username || freshUser.email,
+          firstname: freshUser.firstname,
+          lastname: freshUser.lastname,
+          username: freshUser.username,
+          avatar: freshUser.avatar,
+          verified: freshUser.verified,
+          created: freshUser.created,
+          updated: freshUser.updated,
+          is_admin: freshUser.is_admin || false, // ✅ ДОБАВЛЕНО
         };
         
         console.log('👤 Установка пользователя:', currentUser);
@@ -126,20 +131,21 @@ export default function RootLayout() {
         password
       );
       
-      console.log('✅ Успешный вход:', authData.record.email);
+      // ✅ ЯВНО ЗАГРУЖАЕМ СВЕЖИЕ ДАННЫЕ ПОСЛЕ ВХОДА
+      const freshUser = await pb.collection('users').getOne(authData.record.id);
       
-      const userData = authData.record;
       const newUser = {
-        id: userData.id,
-        email: userData.email,
-        name: userData.firstname || userData.username || userData.email,
-        firstname: userData.firstname,
-        lastname: userData.lastname,
-        username: userData.username,
-        avatar: userData.avatar,
-        verified: userData.verified,
-        created: userData.created,
-        updated: userData.updated
+        id: freshUser.id,
+        email: freshUser.email,
+        name: freshUser.firstname || freshUser.username || freshUser.email,
+        firstname: freshUser.firstname,
+        lastname: freshUser.lastname,
+        username: freshUser.username,
+        avatar: freshUser.avatar,
+        verified: freshUser.verified,
+        created: freshUser.created,
+        updated: freshUser.updated,
+        is_admin: freshUser.is_admin || false,
       };
       
       setUser(newUser);
@@ -151,12 +157,11 @@ export default function RootLayout() {
     }
   };
 
-  // Функция регистрации (ИСПРАВЛЕНА)
+  // Функция регистрации
   const register = async (email: string, password: string, name: string): Promise<boolean> => {
     try {
       console.log(`📝 Регистрация пользователя: ${email}`);
       
-      // Создаём пользователя
       const userData = await pb.collection('users').create({
         email: email.trim().toLowerCase(),
         password: password,
@@ -167,7 +172,6 @@ export default function RootLayout() {
 
       console.log('✅ Успешная регистрация, создан пользователь:', userData.id);
       
-      // Автоматически входим после регистрации
       const authData = await pb.collection('users').authWithPassword(
         email.trim().toLowerCase(),
         password
@@ -180,7 +184,8 @@ export default function RootLayout() {
         firstname: authData.record.firstname,
         verified: authData.record.verified,
         created: authData.record.created,
-        updated: authData.record.updated
+        updated: authData.record.updated,
+        is_admin: false,
       };
       
       setUser(newUser);
@@ -210,7 +215,7 @@ export default function RootLayout() {
     });
   };
 
-  // Функция восстановления пароля (добавлена)
+  // Функция восстановления пароля
   const resetPassword = async (email: string): Promise<boolean> => {
     try {
       await pb.collection('users').requestPasswordReset(email);

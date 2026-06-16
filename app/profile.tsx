@@ -31,7 +31,7 @@ interface Notification {
   comment?: string;
 }
 
-// ОПИСЫВАЕМ ТИП UserWithAdmin НАПРЯМУЮ ЗДЕСЬ
+// Тип для пользователя с is_admin
 interface UserWithAdmin {
   id: string;
   email: string;
@@ -72,6 +72,7 @@ export default function ProfileScreen() {
         sort: '-created',
       });
       setPendingReviews(result.items);
+      console.log('📥 Загружено отзывов на модерацию:', result.items.length);
     } catch (error) {
       console.error('Ошибка загрузки отзывов на модерацию:', error);
     }
@@ -96,9 +97,10 @@ export default function ProfileScreen() {
           is_read: false,
           comment: comment || (status === 'approved' ? '✅ Ваш отзыв опубликован' : '❌ Ваш отзыв отклонен'),
         });
+        console.log('✅ Уведомление отправлено пользователю');
       }
 
-      Alert.alert('Успех', 'Отзыв обработан');
+      Alert.alert('Успех', `Отзыв ${status === 'approved' ? 'опубликован' : 'отклонен'}`);
       loadPendingReviews();
     } catch (error) {
       console.error('Ошибка модерации:', error);
@@ -109,6 +111,11 @@ export default function ProfileScreen() {
   useEffect(() => {
     if (user) {
       loadNotifications();
+      // Автоматически загружаем отзывы на модерацию при загрузке профиля
+      const userWithAdmin = user as UserWithAdmin;
+      if (userWithAdmin.is_admin) {
+        loadPendingReviews();
+      }
     }
   }, [user]);
 
@@ -130,6 +137,10 @@ export default function ProfileScreen() {
   const refreshNotifications = async () => {
     setRefreshing(true);
     await loadNotifications();
+    const userWithAdmin = user as UserWithAdmin;
+    if (userWithAdmin.is_admin) {
+      await loadPendingReviews();
+    }
     setRefreshing(false);
   };
 
@@ -324,6 +335,9 @@ export default function ProfileScreen() {
 
   // Проверяем, является ли пользователь админом
   const isAdmin = user ? (user as UserWithAdmin).is_admin === true : false;
+
+  // Логируем статус админа для отладки
+  console.log('👑 isAdmin:', isAdmin, 'user:', user?.email);
 
   return (
     <View style={styles.container}>
@@ -918,8 +932,6 @@ const styles = StyleSheet.create({
     color: '#999',
     fontFamily: 'Banshrift',
   },
-
-  // ===== СТИЛИ ДЛЯ МОДЕРАЦИИ =====
   reviewItem: {
     backgroundColor: '#fff',
     padding: 12,
