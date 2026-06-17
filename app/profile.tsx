@@ -44,13 +44,38 @@ export default function ProfileScreen() {
   // ===== ДЛЯ МОДЕРАЦИИ =====
   const [pendingReviews, setPendingReviews] = useState<any[]>([]);
   const [showModeration, setShowModeration] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // ===== ПРИНУДИТЕЛЬНАЯ ЗАГРУЗКА СВЕЖИХ ДАННЫХ ПОЛЬЗОВАТЕЛЯ =====
+  const loadFreshUserData = async () => {
+    if (!user) return false;
+    try {
+      const freshUser = await pb.collection('users').getOne(user.id);
+      console.log('🔄 Загружены свежие данные пользователя:', freshUser);
+      console.log('👑 is_admin из БД:', freshUser.is_admin);
+      
+      const isAdminNow = freshUser.is_admin === true;
+      setIsAdmin(isAdminNow);
+      
+      // Обновляем глобальное состояние
+      if (updateUser) {
+        updateUser({ ...user, is_admin: isAdminNow });
+      }
+      
+      return isAdminNow;
+    } catch (error) {
+      console.error('Ошибка загрузки свежих данных:', error);
+      return false;
+    }
+  };
 
   // ===== ЗАГРУЗКА ОТЗЫВОВ НА МОДЕРАЦИЮ =====
   const loadPendingReviews = async () => {
     if (!user) return;
-    // Проверяем is_admin напрямую из объекта user
-    if (!user.is_admin) {
-      console.log('❌ Пользователь не является админом, is_admin =', user.is_admin);
+    // Проверяем is_admin из свежего состояния
+    const adminStatus = await loadFreshUserData();
+    if (!adminStatus) {
+      console.log('❌ Пользователь не является админом');
       return;
     }
     try {
@@ -70,7 +95,8 @@ export default function ProfileScreen() {
   // ===== МОДЕРАЦИЯ ОТЗЫВА =====
   const moderateReview = async (reviewId: string, status: 'approved' | 'rejected', comment?: string) => {
     if (!user) return;
-    if (!user.is_admin) {
+    const adminStatus = await loadFreshUserData();
+    if (!adminStatus) {
       Alert.alert('Ошибка', 'У вас нет прав для модерации');
       return;
     }
@@ -103,14 +129,8 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     if (user) {
+      loadFreshUserData();
       loadNotifications();
-      // Автоматически загружаем отзывы на модерацию, если пользователь админ
-      if (user.is_admin) {
-        console.log('👑 Пользователь админ, загружаем отзывы на модерацию');
-        loadPendingReviews();
-      } else {
-        console.log('👤 Пользователь не админ, is_admin =', user.is_admin);
-      }
     }
   }, [user]);
 
@@ -132,7 +152,8 @@ export default function ProfileScreen() {
   const refreshNotifications = async () => {
     setRefreshing(true);
     await loadNotifications();
-    if (user?.is_admin) {
+    const adminStatus = await loadFreshUserData();
+    if (adminStatus) {
       await loadPendingReviews();
     }
     setRefreshing(false);
@@ -326,14 +347,6 @@ export default function ProfileScreen() {
   };
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
-
-  // Проверяем, является ли пользователь админом
-  const isAdmin = user?.is_admin === true;
-
-  // Логируем статус админа для отладки
-  console.log('👑 isAdmin в профиле:', isAdmin);
-  console.log('👑 user?.is_admin:', user?.is_admin);
-  console.log('👑 Полный user:', user);
 
   return (
     <View style={styles.container}>
