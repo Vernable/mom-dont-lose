@@ -90,6 +90,7 @@ export default function RootLayout() {
         // ✅ ЯВНО ЗАГРУЖАЕМ СВЕЖИЕ ДАННЫЕ ИЗ БД
         const freshUser = await pb.collection('users').getOne(userId);
         console.log('✅ Загружен свежий пользователь из БД:', freshUser);
+        console.log('👑 is_admin из БД:', freshUser.is_admin);
         
         const currentUser = {
           id: freshUser.id,
@@ -102,10 +103,11 @@ export default function RootLayout() {
           verified: freshUser.verified,
           created: freshUser.created,
           updated: freshUser.updated,
-          is_admin: freshUser.is_admin || false, // ✅ ДОБАВЛЕНО
+          is_admin: freshUser.is_admin === true, // ✅ ЯВНО ПРИВОДИМ К BOOLEAN
         };
         
         console.log('👤 Установка пользователя:', currentUser);
+        console.log('👑 is_admin в currentUser:', currentUser.is_admin);
         setUser(currentUser);
       } else {
         console.log('❌ Нет валидной сессии');
@@ -133,6 +135,7 @@ export default function RootLayout() {
       
       // ✅ ЯВНО ЗАГРУЖАЕМ СВЕЖИЕ ДАННЫЕ ПОСЛЕ ВХОДА
       const freshUser = await pb.collection('users').getOne(authData.record.id);
+      console.log('👑 is_admin из БД после входа:', freshUser.is_admin);
       
       const newUser = {
         id: freshUser.id,
@@ -145,9 +148,10 @@ export default function RootLayout() {
         verified: freshUser.verified,
         created: freshUser.created,
         updated: freshUser.updated,
-        is_admin: freshUser.is_admin || false,
+        is_admin: freshUser.is_admin === true,
       };
       
+      console.log('👑 is_admin в newUser:', newUser.is_admin);
       setUser(newUser);
       return true;
       
