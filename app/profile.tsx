@@ -46,57 +46,43 @@ export default function ProfileScreen() {
   const [showModeration, setShowModeration] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  // ===== ПРИНУДИТЕЛЬНАЯ ЗАГРУЗКА СВЕЖИХ ДАННЫХ ПОЛЬЗОВАТЕЛЯ =====
-  const loadFreshUserData = async () => {
+  // ===== ЗАГРУЗКА СТАТУСА АДМИНА =====
+  const loadAdminStatus = async () => {
     if (!user) return false;
     try {
       const freshUser = await pb.collection('users').getOne(user.id);
-      console.log('🔄 Загружены свежие данные пользователя:', freshUser);
-      console.log('👑 is_admin из БД:', freshUser.is_admin);
-      
-      const isAdminNow = freshUser.is_admin === true;
-      setIsAdmin(isAdminNow);
-      
-      // Обновляем глобальное состояние
-      if (updateUser) {
-        updateUser({ ...user, is_admin: isAdminNow });
-      }
-      
-      return isAdminNow;
+      const adminStatus = freshUser.is_admin === true;
+      setIsAdmin(adminStatus);
+      return adminStatus;
     } catch (error) {
-      console.error('Ошибка загрузки свежих данных:', error);
+      console.error('Ошибка загрузки is_admin:', error);
       return false;
     }
   };
 
   // ===== ЗАГРУЗКА ОТЗЫВОВ НА МОДЕРАЦИЮ =====
   const loadPendingReviews = async () => {
-    if (!user) return;
-    // Проверяем is_admin из свежего состояния
-    const adminStatus = await loadFreshUserData();
-    if (!adminStatus) {
-      console.log('❌ Пользователь не является админом');
+    const adminStatus = await loadAdminStatus();
+    if (!user || !adminStatus) {
+      setPendingReviews([]);
       return;
     }
     try {
-      console.log('📥 Загрузка отзывов на модерацию для админа...');
       const result = await pb.collection('reviews').getList(1, 100, {
         filter: 'status = "pending"',
         expand: 'user,place',
         sort: '-created',
       });
-      console.log('📥 Загружено отзывов на модерацию:', result.items.length);
       setPendingReviews(result.items);
     } catch (error) {
-      console.error('Ошибка загрузки отзывов на модерацию:', error);
+      console.error('Ошибка загрузки отзывов:', error);
     }
   };
 
   // ===== МОДЕРАЦИЯ ОТЗЫВА =====
   const moderateReview = async (reviewId: string, status: 'approved' | 'rejected', comment?: string) => {
-    if (!user) return;
-    const adminStatus = await loadFreshUserData();
-    if (!adminStatus) {
+    const adminStatus = await loadAdminStatus();
+    if (!user || !adminStatus) {
       Alert.alert('Ошибка', 'У вас нет прав для модерации');
       return;
     }
@@ -116,7 +102,6 @@ export default function ProfileScreen() {
           is_read: false,
           comment: comment || (status === 'approved' ? '✅ Ваш отзыв опубликован' : '❌ Ваш отзыв отклонен'),
         });
-        console.log('✅ Уведомление отправлено пользователю');
       }
 
       Alert.alert('Успех', `Отзыв ${status === 'approved' ? 'опубликован' : 'отклонен'}`);
@@ -127,13 +112,7 @@ export default function ProfileScreen() {
     }
   };
 
-  useEffect(() => {
-    if (user) {
-      loadFreshUserData();
-      loadNotifications();
-    }
-  }, [user]);
-
+  // ===== ЗАГРУЗКА УВЕДОМЛЕНИЙ =====
   const loadNotifications = async () => {
     if (!user) return;
     try {
@@ -142,23 +121,21 @@ export default function ProfileScreen() {
         expand: 'from_user',
         sort: '-created',
       });
-      console.log('📥 Загружено уведомлений:', result.items.length);
       setNotifications(result.items as any);
     } catch (error: any) {
       console.error('Ошибка загрузки уведомлений:', error);
     }
   };
 
+  // ===== ОБНОВЛЕНИЕ =====
   const refreshNotifications = async () => {
     setRefreshing(true);
     await loadNotifications();
-    const adminStatus = await loadFreshUserData();
-    if (adminStatus) {
-      await loadPendingReviews();
-    }
+    await loadPendingReviews();
     setRefreshing(false);
   };
 
+  // ===== ОТМЕТКА ПРОЧИТАННОГО =====
   const markAsRead = async (notificationId: string) => {
     try {
       await pb.collection('notifications').update(notificationId, { is_read: true });
@@ -170,6 +147,7 @@ export default function ProfileScreen() {
     }
   };
 
+  // ===== ПОЛУЧЕНИЕ ID ПОЛЬЗОВАТЕЛЯ ИЗ УВЕДОМЛЕНИЯ =====
   const getFromUserId = (notification: Notification): string | null => {
     if (notification.expand?.from_user?.id) {
       return notification.expand.from_user.id;
@@ -233,6 +211,7 @@ export default function ProfileScreen() {
     }
   };
 
+  // ===== ВЫХОД =====
   const handleLogout = () => {
     Alert.alert(
       'Выход из аккаунта',
@@ -244,10 +223,12 @@ export default function ProfileScreen() {
     );
   };
 
+  // ===== ИСТОРИЯ =====
   const handleViewedPlaces = () => {
     router.push('/viewedplaces');
   };
 
+  // ===== АВАТАР =====
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
@@ -348,6 +329,16 @@ export default function ProfileScreen() {
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
+  // ===== ИНИЦИАЛИЗАЦИЯ =====
+  useEffect(() => {
+    if (user) {
+      loadAdminStatus();
+      loadNotifications();
+      loadPendingReviews();
+    }
+  }, [user]);
+
+  // ===== РЕНДЕР =====
   return (
     <View style={styles.container}>
       {user ? (
@@ -359,6 +350,7 @@ export default function ProfileScreen() {
               <RefreshControl refreshing={refreshing} onRefresh={refreshNotifications} colors={['#72383D']} />
             }
           >
+            {/* ШАПКА */}
             <View style={styles.header}>
               <Text style={styles.headerUsername}>@{user.username || 'username'}</Text>
               <TouchableOpacity
@@ -377,6 +369,7 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             </View>
 
+            {/* ФОТО И ИМЯ */}
             <View style={styles.profileRow}>
               <TouchableOpacity
                 style={styles.photoContainer}
@@ -403,6 +396,7 @@ export default function ProfileScreen() {
               </View>
             </View>
 
+            {/* ИНФОРМАЦИЯ */}
             <View style={styles.section}>
               <TouchableOpacity
                 style={styles.sectionHeader}
@@ -436,6 +430,7 @@ export default function ProfileScreen() {
               )}
             </View>
 
+            {/* ДЕЙСТВИЯ */}
             <View style={styles.section}>
               <TouchableOpacity
                 style={styles.sectionHeader}
@@ -460,7 +455,7 @@ export default function ProfileScreen() {
                     <Text style={styles.actionButtonText}>👁️ История</Text>
                   </TouchableOpacity>
 
-                  {/* ===== КНОПКА МОДЕРАЦИИ ===== */}
+                  {/* 🔥 КНОПКА МОДЕРАЦИИ */}
                   {isAdmin && (
                     <TouchableOpacity
                       style={[styles.actionButton, { backgroundColor: '#72383D' }]}
@@ -497,7 +492,7 @@ export default function ProfileScreen() {
         </View>
       )}
 
-      {/* Модальное окно уведомлений */}
+      {/* ===== МОДАЛЬНОЕ ОКНО УВЕДОМЛЕНИЙ ===== */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -630,382 +625,65 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#EFE9E1',
-  },
-  profileContent: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    padding: 16,
-    paddingBottom: 100,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-    paddingHorizontal: 8,
-  },
-  headerUsername: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#72383D',
-    fontFamily: 'Banshrift',
-  },
-  notificationButton: {
-    position: 'relative',
-    padding: 8,
-  },
-  notificationIcon: {
-    fontSize: 24,
-  },
-  badge: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    backgroundColor: '#FF4444',
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 4,
-  },
-  badgeText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: 'bold',
-    fontFamily: 'Banshrift',
-  },
-  profileRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 24,
-    backgroundColor: '#EFE9E1',
-    padding: 16,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  photoContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    overflow: 'hidden',
-    marginRight: 20,
-    borderWidth: 3,
-    borderColor: '#72383D',
-    position: 'relative',
-  },
-  profilePhoto: {
-    width: '100%',
-    height: '100%',
-  },
-  cameraIconContainer: {
-    position: 'absolute',
-    bottom: 5,
-    right: 5,
-    backgroundColor: '#AC9C8D',
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'white',
-  },
-  cameraIcon: {
-    fontSize: 16,
-    fontFamily: 'Banshrift',
-  },
-  loadingOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 50,
-  },
-  loadingText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: 'bold',
-    fontFamily: 'Banshrift',
-  },
-  userInfo: {
-    flex: 1,
-  },
-  userName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#72383D',
-    fontFamily: 'Banshrift',
-    marginBottom: 4,
-  },
-  userEmail: {
-    fontSize: 14,
-    color: '#72383D',
-    fontFamily: 'Banshrift',
-    opacity: 0.7,
-  },
-  section: {
-    backgroundColor: '#EFE9E1',
-    borderRadius: 12,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    overflow: 'hidden',
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#EFE9E1',
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#72383D',
-    fontFamily: 'Banshrift',
-  },
-  chevron: {
-    fontSize: 16,
-    color: '#72383D',
-    fontFamily: 'Banshrift',
-  },
-  sectionContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-  },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  infoLabel: {
-    fontSize: 16,
-    color: '#72383D',
-    flex: 1,
-    fontFamily: 'Banshrift',
-  },
-  infoValue: {
-    fontSize: 16,
-    color: '#72383D',
-    fontWeight: '500',
-    flex: 1,
-    textAlign: 'right',
-    fontFamily: 'Banshrift',
-  },
-  actionButton: {
-    backgroundColor: '#72383D',
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  actionButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-    fontFamily: 'Banshrift',
-  },
-  logoutButton: {
-    backgroundColor: '#72383D',
-    marginTop: 8,
-    marginBottom: 0,
-  },
-  logoutButtonText: {
-    color: 'white',
-    fontFamily: 'Banshrift',
-  },
-  bottomSpacer: {
-    height: 80,
-  },
-  guestContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-    paddingBottom: 100,
-  },
-  guestText: {
-    fontSize: 18,
-    color: '#72383D',
-    marginBottom: 20,
-    fontFamily: 'Banshrift',
-  },
-  authButton: {
-    backgroundColor: '#72383D',
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    width: '100%',
-    maxWidth: 300,
-  },
-  authButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-    fontFamily: 'Banshrift',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#EFE9E1',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '80%',
-    minHeight: '50%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#72383D',
-    fontFamily: 'Banshrift',
-  },
-  closeButton: {
-    fontSize: 24,
-    color: '#72383D',
-    fontFamily: 'Banshrift',
-  },
-  notificationItem: {
-    flexDirection: 'row',
-    padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-    alignItems: 'center',
-  },
-  unreadNotification: {
-    backgroundColor: '#F5F0EB',
-  },
-  notificationAvatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginRight: 15,
-  },
-  notificationContent: {
-    flex: 1,
-  },
-  notificationText: {
-    fontSize: 14,
-    color: '#72383D',
-    fontFamily: 'Banshrift',
-    marginBottom: 4,
-  },
-  notificationUserName: {
-    fontWeight: 'bold',
-  },
-  notificationTime: {
-    fontSize: 12,
-    color: '#999',
-    fontFamily: 'Banshrift',
-  },
-  emptyText: {
-    textAlign: 'center',
-    padding: 40,
-    color: '#999',
-    fontFamily: 'Banshrift',
-  },
-  reviewItem: {
-    backgroundColor: '#fff',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#ddd',
-  },
-  reviewUserName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#72383D',
-    fontFamily: 'Banshrift',
-  },
-  reviewComment: {
-    fontSize: 14,
-    color: '#333',
-    fontFamily: 'Banshrift',
-    marginVertical: 4,
-  },
-  reviewRating: {
-    fontSize: 14,
-    color: '#FFB300',
-    fontFamily: 'Banshrift',
-  },
-  reviewPlace: {
-    fontSize: 14,
-    color: '#666',
-    fontFamily: 'Banshrift',
-    marginBottom: 8,
-  },
-  moderationButtons: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 8,
-  },
-  moderationButton: {
-    padding: 10,
-    borderRadius: 8,
-    alignItems: 'center',
-    flex: 1,
-  },
-  approveButton: {
-    backgroundColor: '#28a745',
-  },
-  rejectButton: {
-    backgroundColor: '#dc3545',
-  },
-  moderationButtonText: {
-    color: 'white',
-    fontFamily: 'Banshrift',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  cancelButton: {
-    padding: 16,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    color: '#000000',
-    fontWeight: '500',
-    fontFamily: 'Banshrift',
-  },
+  container: { flex: 1, backgroundColor: '#EFE9E1' },
+  profileContent: { flex: 1 },
+  scrollContent: { flexGrow: 1, padding: 16, paddingBottom: 100 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, paddingHorizontal: 8 },
+  headerUsername: { fontSize: 18, fontWeight: 'bold', color: '#72383D', fontFamily: 'Banshrift' },
+  notificationButton: { position: 'relative', padding: 8 },
+  notificationIcon: { fontSize: 24 },
+  badge: { position: 'absolute', top: 0, right: 0, backgroundColor: '#FF4444', borderRadius: 10, minWidth: 20, height: 20, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 4 },
+  badgeText: { color: 'white', fontSize: 12, fontWeight: 'bold', fontFamily: 'Banshrift' },
+  profileRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 24, backgroundColor: '#EFE9E1', padding: 16, borderRadius: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
+  photoContainer: { width: 100, height: 100, borderRadius: 50, overflow: 'hidden', marginRight: 20, borderWidth: 3, borderColor: '#72383D', position: 'relative' },
+  profilePhoto: { width: '100%', height: '100%' },
+  cameraIconContainer: { position: 'absolute', bottom: 5, right: 5, backgroundColor: '#AC9C8D', width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: 'white' },
+  cameraIcon: { fontSize: 16, fontFamily: 'Banshrift' },
+  loadingOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', borderRadius: 50 },
+  loadingText: { color: 'white', fontSize: 12, fontWeight: 'bold', fontFamily: 'Banshrift' },
+  userInfo: { flex: 1 },
+  userName: { fontSize: 18, fontWeight: 'bold', color: '#72383D', fontFamily: 'Banshrift', marginBottom: 4 },
+  userEmail: { fontSize: 14, color: '#72383D', fontFamily: 'Banshrift', opacity: 0.7 },
+  section: { backgroundColor: '#EFE9E1', borderRadius: 12, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3, overflow: 'hidden' },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, backgroundColor: '#EFE9E1' },
+  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#72383D', fontFamily: 'Banshrift' },
+  chevron: { fontSize: 16, color: '#72383D', fontFamily: 'Banshrift' },
+  sectionContent: { paddingHorizontal: 20, paddingBottom: 20, borderTopWidth: 1, borderTopColor: '#e0e0e0' },
+  infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#e0e0e0' },
+  infoLabel: { fontSize: 16, color: '#72383D', flex: 1, fontFamily: 'Banshrift' },
+  infoValue: { fontSize: 16, color: '#72383D', fontWeight: '500', flex: 1, textAlign: 'right', fontFamily: 'Banshrift' },
+  actionButton: { backgroundColor: '#72383D', padding: 16, borderRadius: 12, alignItems: 'center', marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
+  actionButtonText: { color: 'white', fontSize: 16, fontWeight: 'bold', fontFamily: 'Banshrift' },
+  logoutButton: { backgroundColor: '#72383D', marginTop: 8, marginBottom: 0 },
+  logoutButtonText: { color: 'white', fontFamily: 'Banshrift' },
+  bottomSpacer: { height: 80 },
+  guestContent: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20, paddingBottom: 100 },
+  guestText: { fontSize: 18, color: '#72383D', marginBottom: 20, fontFamily: 'Banshrift' },
+  authButton: { backgroundColor: '#72383D', padding: 16, borderRadius: 12, alignItems: 'center', width: '100%', maxWidth: 300 },
+  authButtonText: { color: 'white', fontSize: 16, fontWeight: 'bold', fontFamily: 'Banshrift' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: '#EFE9E1', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '80%', minHeight: '50%' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: '#e0e0e0' },
+  modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#72383D', fontFamily: 'Banshrift' },
+  closeButton: { fontSize: 24, color: '#72383D', fontFamily: 'Banshrift' },
+  notificationItem: { flexDirection: 'row', padding: 15, borderBottomWidth: 1, borderBottomColor: '#e0e0e0', alignItems: 'center' },
+  unreadNotification: { backgroundColor: '#F5F0EB' },
+  notificationAvatar: { width: 50, height: 50, borderRadius: 25, marginRight: 15 },
+  notificationContent: { flex: 1 },
+  notificationText: { fontSize: 14, color: '#72383D', fontFamily: 'Banshrift', marginBottom: 4 },
+  notificationUserName: { fontWeight: 'bold' },
+  notificationTime: { fontSize: 12, color: '#999', fontFamily: 'Banshrift' },
+  emptyText: { textAlign: 'center', padding: 40, color: '#999', fontFamily: 'Banshrift' },
+  reviewItem: { backgroundColor: '#fff', padding: 12, borderRadius: 8, marginBottom: 12, borderWidth: 1, borderColor: '#ddd' },
+  reviewUserName: { fontSize: 16, fontWeight: 'bold', color: '#72383D', fontFamily: 'Banshrift' },
+  reviewComment: { fontSize: 14, color: '#333', fontFamily: 'Banshrift', marginVertical: 4 },
+  reviewRating: { fontSize: 14, color: '#FFB300', fontFamily: 'Banshrift' },
+  reviewPlace: { fontSize: 14, color: '#666', fontFamily: 'Banshrift', marginBottom: 8 },
+  moderationButtons: { flexDirection: 'row', gap: 10, marginTop: 8 },
+  moderationButton: { padding: 10, borderRadius: 8, alignItems: 'center', flex: 1 },
+  approveButton: { backgroundColor: '#28a745' },
+  rejectButton: { backgroundColor: '#dc3545' },
+  moderationButtonText: { color: 'white', fontFamily: 'Banshrift', fontSize: 14, fontWeight: 'bold' },
+  cancelButton: { padding: 16, backgroundColor: '#f8f9fa', borderRadius: 12, alignItems: 'center', marginTop: 8 },
+  cancelButtonText: { fontSize: 16, color: '#000000', fontWeight: '500', fontFamily: 'Banshrift' },
 });

@@ -3,7 +3,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { Alert } from 'react-native';
 import { pb } from './utils/pb';
 
-// Типы для авторизации с is_admin
+// Типы для авторизации
 type User = {
   id: string;
   email: string;
@@ -15,7 +15,7 @@ type User = {
   verified?: boolean;
   created?: string;
   updated?: string;
-  is_admin?: boolean; // ✅ ДОБАВЛЕНО
+  is_admin?: boolean;
 };
 
 type AuthContextType = {
@@ -49,21 +49,11 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    console.log('🔐 AuthGuard - user:', user?.email, 'isLoading:', isLoading);
-    
     if (isLoading) return;
-
     const currentRoute = segments[0];
-    console.log('📍 Current route:', currentRoute);
-    
-    // Если нет пользователя и не на welcome/auth, редиректим на welcome
     if (!user && currentRoute !== 'welcome' && currentRoute !== 'auth') {
-      console.log('🔄 Redirecting to welcome - no user');
       router.replace('/welcome');
-    } 
-    // Если есть пользователь и на welcome/auth, редиректим на главную
-    else if (user && (currentRoute === 'welcome' || currentRoute === 'auth')) {
-      console.log('🔄 Redirecting to home - user exists');
+    } else if (user && (currentRoute === 'welcome' || currentRoute === 'auth')) {
       router.replace('/');
     }
   }, [user, segments, isLoading]);
@@ -74,7 +64,6 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 export default function RootLayout() {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const router = useRouter();
 
   useEffect(() => {
     checkAuthStatus();
@@ -82,17 +71,10 @@ export default function RootLayout() {
 
   const checkAuthStatus = async () => {
     try {
-      console.log('🔍 Проверка авторизации...');
-      
       if (pb.authStore.isValid && pb.authStore.model) {
         const userId = pb.authStore.model.id;
-        
-        // ✅ ЯВНО ЗАГРУЖАЕМ СВЕЖИЕ ДАННЫЕ ИЗ БД
         const freshUser = await pb.collection('users').getOne(userId);
-        console.log('✅ Загружен свежий пользователь из БД:', freshUser);
-        console.log('👑 is_admin из БД:', freshUser.is_admin);
-        
-        const currentUser = {
+        setUser({
           id: freshUser.id,
           email: freshUser.email,
           name: freshUser.firstname || freshUser.username || freshUser.email,
@@ -103,41 +85,24 @@ export default function RootLayout() {
           verified: freshUser.verified,
           created: freshUser.created,
           updated: freshUser.updated,
-          is_admin: freshUser.is_admin === true, // ✅ ЯВНО ПРИВОДИМ К BOOLEAN
-        };
-        
-        console.log('👤 Установка пользователя:', currentUser);
-        console.log('👑 is_admin в currentUser:', currentUser.is_admin);
-        setUser(currentUser);
+          is_admin: freshUser.is_admin === true,
+        });
       } else {
-        console.log('❌ Нет валидной сессии');
         setUser(null);
       }
-    } catch (error: any) {
-      console.error('🔥 Ошибка проверки авторизации:', error.message);
+    } catch (error) {
       pb.authStore.clear();
       setUser(null);
     } finally {
       setIsLoading(false);
-      console.log('🏁 Проверка авторизации завершена');
     }
   };
 
-  // Функция входа
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      console.log(`🔐 Попытка входа для: ${email}`);
-      
-      const authData = await pb.collection('users').authWithPassword(
-        email.trim().toLowerCase(),
-        password
-      );
-      
-      // ✅ ЯВНО ЗАГРУЖАЕМ СВЕЖИЕ ДАННЫЕ ПОСЛЕ ВХОДА
+      const authData = await pb.collection('users').authWithPassword(email.trim().toLowerCase(), password);
       const freshUser = await pb.collection('users').getOne(authData.record.id);
-      console.log('👑 is_admin из БД после входа:', freshUser.is_admin);
-      
-      const newUser = {
+      setUser({
         id: freshUser.id,
         email: freshUser.email,
         name: freshUser.firstname || freshUser.username || freshUser.email,
@@ -149,99 +114,48 @@ export default function RootLayout() {
         created: freshUser.created,
         updated: freshUser.updated,
         is_admin: freshUser.is_admin === true,
-      };
-      
-      console.log('👑 is_admin в newUser:', newUser.is_admin);
-      setUser(newUser);
+      });
       return true;
-      
-    } catch (error: any) {
-      console.error('❌ Ошибка входа:', error.message);
+    } catch (error) {
       return false;
     }
   };
 
-  // Функция регистрации
   const register = async (email: string, password: string, name: string): Promise<boolean> => {
     try {
-      console.log(`📝 Регистрация пользователя: ${email}`);
-      
-      const userData = await pb.collection('users').create({
+      await pb.collection('users').create({
         email: email.trim().toLowerCase(),
         password: password,
         passwordConfirm: password,
         firstname: name.trim(),
         emailVisibility: true,
       });
-
-      console.log('✅ Успешная регистрация, создан пользователь:', userData.id);
-      
-      const authData = await pb.collection('users').authWithPassword(
-        email.trim().toLowerCase(),
-        password
-      );
-      
-      const newUser = {
-        id: authData.record.id,
-        email: authData.record.email,
-        name: authData.record.firstname || authData.record.email,
-        firstname: authData.record.firstname,
-        verified: authData.record.verified,
-        created: authData.record.created,
-        updated: authData.record.updated,
-        is_admin: false,
-      };
-      
-      setUser(newUser);
-      return true;
-      
-    } catch (error: any) {
-      console.error('❌ Ошибка регистрации:', error.message);
+      return await login(email, password);
+    } catch (error) {
       return false;
     }
   };
 
-  // Функция выхода
   const logout = () => {
-    console.log('🚪 Выход из системы...');
     pb.authStore.clear();
     setUser(null);
   };
 
-  // Функция обновления данных пользователя
   const updateUser = (newUserData: Partial<User>) => {
-    setUser(prevUser => {
-      if (!prevUser) return prevUser;
-      return {
-        ...prevUser,
-        ...newUserData
-      };
-    });
+    setUser(prev => (prev ? { ...prev, ...newUserData } : null));
   };
 
-  // Функция восстановления пароля
   const resetPassword = async (email: string): Promise<boolean> => {
     try {
       await pb.collection('users').requestPasswordReset(email);
       return true;
-    } catch (error: any) {
-      console.error('❌ Ошибка восстановления пароля:', error.message);
+    } catch {
       return false;
     }
   };
 
-  const authContextValue: AuthContextType = {
-    user,
-    isLoading,
-    login,
-    register,
-    logout,
-    updateUser,
-    resetPassword,
-  };
-
   return (
-    <AuthContext.Provider value={authContextValue}>
+    <AuthContext.Provider value={{ user, isLoading, login, register, logout, updateUser, resetPassword }}>
       <AuthGuard>
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="welcome" />
